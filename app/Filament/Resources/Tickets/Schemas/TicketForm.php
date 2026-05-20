@@ -85,7 +85,9 @@ class TicketForm
                             ->label('Estado')
                             ->options(TicketStatus::class)
                             ->required()
-                            ->default(TicketStatus::Created->value),
+                            ->default(TicketStatus::Created->value)
+                            ->disabled()
+                            ->dehydrated(false),
                         Select::make('cashier_id')
                             ->label('Cajero')
                             ->relationship('cashier', 'name')
@@ -149,13 +151,17 @@ class TicketForm
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "Chofer #{$record->id}")
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled()
+                            ->dehydrated(false),
                         Select::make('current_vehicle_id')
                             ->label('Vehiculo')
                             ->relationship('currentVehicle', 'plate')
                             ->searchable(['plate', 'code', 'brand', 'model'])
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled()
+                            ->dehydrated(false),
                     ]),
                 Section::make('Productos')
                     ->schema([

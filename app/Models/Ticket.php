@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'cashier_id',
     'current_driver_id',
     'current_vehicle_id',
+    'assigned_by',
     'ticket_code',
     'guide_number',
     'source_image_path',
@@ -36,6 +37,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Ticket extends Model
 {
+    protected static function booted(): void
+    {
+        static::creating(function (Ticket $ticket): void {
+            $ticket->priority ??= TicketPriority::Normal;
+            $ticket->status ??= TicketStatus::Created;
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -89,8 +98,28 @@ class Ticket extends Model
         return $this->belongsTo(Vehicle::class, 'current_vehicle_id');
     }
 
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(TicketItem::class);
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(TicketAssignment::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(TicketEvent::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(TicketDocument::class);
     }
 }
