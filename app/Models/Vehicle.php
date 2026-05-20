@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\WarehouseType;
+use App\Enums\VehicleStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,21 +10,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'company_id',
-    'branch_id',
     'code',
-    'name',
+    'plate',
+    'brand',
+    'model',
     'type',
-    'is_general',
-    'address',
+    'capacity_kg',
+    'volume_m3',
+    'status',
     'is_active',
+    'observations',
 ])]
-class Warehouse extends Model
+class Vehicle extends Model
 {
     protected function casts(): array
     {
         return [
-            'type' => WarehouseType::class,
-            'is_general' => 'boolean',
+            'capacity_kg' => 'decimal:2',
+            'volume_m3' => 'decimal:2',
+            'status' => VehicleStatus::class,
             'is_active' => 'boolean',
         ];
     }
@@ -34,18 +38,13 @@ class Warehouse extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function branch(): BelongsTo
+    public function driverProfiles(): HasMany
     {
-        return $this->belongsTo(Branch::class);
-    }
-
-    public function employees(): HasMany
-    {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(DriverProfile::class, 'default_vehicle_id');
     }
 
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class);
+        return $this->hasMany(Ticket::class, 'current_vehicle_id');
     }
 }
