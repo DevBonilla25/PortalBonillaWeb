@@ -11,6 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'product_code',
     'product_name',
     'quantity',
+    'loaded_quantity',
+    'is_loaded',
+    'load_reviewed_by',
+    'load_reviewed_at',
+    'load_observation',
     'unit',
     'observations',
 ])]
@@ -20,11 +25,24 @@ class TicketItem extends Model
     {
         return [
             'quantity' => 'decimal:2',
+            'loaded_quantity' => 'decimal:2',
+            'is_loaded' => 'boolean',
+            'load_reviewed_at' => 'datetime',
         ];
     }
 
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function loadReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'load_reviewed_by');
+    }
+
+    public function isLoadReviewed(): bool
+    {
+        return $this->load_reviewed_at !== null;
     }
 }

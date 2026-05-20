@@ -18,6 +18,7 @@ class LogisticsCatalogSeeder extends Seeder
             ['code' => 'NORTE', 'name' => 'Norte'],
             ['code' => 'SUR', 'name' => 'Sur'],
             ['code' => 'CENTRO', 'name' => 'Centro'],
+            ['code' => 'VALLE', 'name' => 'Valle'],
             ['code' => 'RURAL', 'name' => 'Rural'],
         ];
 

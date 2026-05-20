@@ -10,6 +10,7 @@ use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\DocumentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\EventsRelationManager;
+use App\Filament\Resources\Tickets\RelationManagers\ItemsRelationManager;
 use App\Filament\Resources\Tickets\Schemas\TicketForm;
 use App\Filament\Resources\Tickets\Schemas\TicketInfolist;
 use App\Filament\Resources\Tickets\Tables\TicketsTable;
@@ -56,6 +57,7 @@ class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
+            ItemsRelationManager::class,
             AssignmentsRelationManager::class,
             DocumentsRelationManager::class,
             EventsRelationManager::class,
