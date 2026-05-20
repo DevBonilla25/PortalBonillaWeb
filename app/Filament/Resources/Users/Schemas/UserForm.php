@@ -42,7 +42,13 @@ class UserForm
                             ->rule(Password::defaults())
                             ->dehydrated(fn (?string $state): bool => filled($state))
                             ->required(fn (string $operation): bool => $operation === 'create'),
-                        TextInput::make('phone')
+                        TextInput::make('password_confirmation')
+                            ->label('Confirmar contraseña')
+                            ->password()
+                            ->revealable()
+                            ->dehydrated(false)
+                            ->required(fn (string $operation): bool => $operation === 'create'),
+                            TextInput::make('phone')
                             ->label('Teléfono')
                             ->tel()
                             ->maxLength(50),

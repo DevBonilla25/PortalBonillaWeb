@@ -59,6 +59,11 @@ class Contact extends Model
         return $this->hasMany(Employee::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
     public function getDisplayNameAttribute(): string
     {
         if ($this->contact_type === ContactType::Company) {
