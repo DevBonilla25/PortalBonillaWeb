@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Tickets\Tables;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Filament\Resources\Tickets\Actions\TicketRecordActions;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -45,6 +46,9 @@ class TicketsTable
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "Chofer #{$record->id}"),
             ])
             ->recordActions([
+                TicketRecordActions::sendToWarehouse(),
+                TicketRecordActions::assignResources(),
+                TicketRecordActions::changeStatus(),
                 ViewAction::make(),
                 EditAction::make(),
             ])

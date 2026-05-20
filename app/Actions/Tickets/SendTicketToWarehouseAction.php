@@ -9,25 +9,26 @@ use App\Models\User;
 use App\Services\TicketEventService;
 use App\Services\TicketWorkflowService;
 
-class ChangeTicketStatusAction
+class SendTicketToWarehouseAction
 {
     public function __construct(
         private readonly TicketWorkflowService $workflow,
         private readonly TicketEventService $events,
     ) {}
 
-    public function execute(Ticket $ticket, TicketStatus $nextStatus, ?User $user = null, ?string $description = null): Ticket
+    public function execute(Ticket $ticket, User $user): Ticket
     {
         $previousStatus = $ticket->status;
-        $ticket = $this->workflow->transition($ticket, $nextStatus);
+
+        $ticket = $this->workflow->transition($ticket, TicketStatus::SentToWarehouse);
 
         $this->events->record(
             ticket: $ticket,
-            eventType: TicketEventType::StatusChanged,
+            eventType: TicketEventType::SentToWarehouse,
             user: $user,
             previousStatus: $previousStatus,
-            newStatus: $nextStatus,
-            description: $description ?? 'Cambio de estado del ticket.',
+            newStatus: TicketStatus::SentToWarehouse,
+            description: 'Ticket enviado a bodega.',
         );
 
         return $ticket;

@@ -47,4 +47,9 @@ class Vehicle extends Model
     {
         return $this->hasMany(Ticket::class, 'current_vehicle_id');
     }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(TicketAssignment::class);
+    }
 }

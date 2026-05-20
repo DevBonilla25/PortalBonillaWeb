@@ -57,4 +57,14 @@ class DriverProfile extends Model
     {
         return $this->hasMany(Ticket::class, 'current_driver_id');
     }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(TicketAssignment::class, 'driver_id');
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(TicketEvent::class, 'driver_id');
+    }
 }
