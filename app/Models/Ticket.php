@@ -129,6 +129,21 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class);
     }
 
+    public function deliveryEvidences(): HasMany
+    {
+        return $this->hasMany(DeliveryEvidence::class);
+    }
+
+    public function novelties(): HasMany
+    {
+        return $this->hasMany(TicketNovelty::class);
+    }
+
+    public function locationPoints(): HasMany
+    {
+        return $this->hasMany(LocationPoint::class);
+    }
+
     /**
      * @return list<string>
      */

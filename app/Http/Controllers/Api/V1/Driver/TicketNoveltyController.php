@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\Driver;
+
+use App\Actions\Deliveries\RegisterTicketNoveltyAction;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Driver\RegisterTicketNoveltyRequest;
+use App\Http\Resources\Api\V1\TicketNoveltyResource;
+use App\Models\DriverProfile;
+use App\Models\Ticket;
+
+class TicketNoveltyController extends Controller
+{
+    public function store(RegisterTicketNoveltyRequest $request, Ticket $ticket, RegisterTicketNoveltyAction $action): TicketNoveltyResource
+    {
+        $novelty = $action->execute(
+            ticket: $ticket,
+            driver: $this->driver($request),
+            data: $request->validated(),
+        );
+
+        return TicketNoveltyResource::make($novelty);
+    }
+
+    private function driver(RegisterTicketNoveltyRequest $request): DriverProfile
+    {
+        $driver = $request->user()->driverProfile;
+
+        abort_unless($driver && $driver->is_active, 403, 'No tienes un perfil de chofer activo.');
+
+        return $driver;
+    }
+}

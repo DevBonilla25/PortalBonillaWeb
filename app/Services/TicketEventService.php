@@ -8,6 +8,7 @@ use App\Models\DriverProfile;
 use App\Models\Ticket;
 use App\Models\TicketEvent;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 
 class TicketEventService
 {
@@ -23,6 +24,13 @@ class TicketEventService
         ?DriverProfile $driver = null,
         ?string $description = null,
         array $metadata = [],
+        ?float $latitude = null,
+        ?float $longitude = null,
+        ?float $accuracy = null,
+        ?Carbon $occurredAt = null,
+        ?string $source = null,
+        ?string $connectionStatus = null,
+        ?string $localEventId = null,
     ): TicketEvent {
         return $ticket->events()->create([
             'user_id' => $user?->id,
@@ -30,9 +38,14 @@ class TicketEventService
             'event_type' => $eventType,
             'previous_status' => $previousStatus,
             'new_status' => $newStatus,
-            'occurred_at' => now(),
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'accuracy' => $accuracy,
+            'occurred_at' => $occurredAt ?? now(),
             'received_at' => now(),
-            'source' => 'web',
+            'source' => $source ?? 'web',
+            'connection_status' => $connectionStatus,
+            'local_event_id' => $localEventId,
             'description' => $description,
             'metadata' => $metadata === [] ? null : $metadata,
         ]);
