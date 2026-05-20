@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'company_id',
@@ -113,6 +114,11 @@ class Ticket extends Model
         return $this->hasMany(TicketAssignment::class);
     }
 
+    public function latestAssignment(): HasOne
+    {
+        return $this->hasOne(TicketAssignment::class)->latestOfMany();
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(TicketEvent::class);
@@ -121,5 +127,49 @@ class Ticket extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(TicketDocument::class);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function itemLinesPreview(int $limit = 2): array
+    {
+        $items = $this->relationLoaded('items')
+            ? $this->items
+            : $this->items()->orderBy('id')->get();
+
+        return $items
+            ->take($limit)
+            ->map(fn (TicketItem $item): string => trim(
+                "{$item->product_name} x".rtrim(rtrim((string) $item->quantity, '0'), '.'),
+            ))
+            ->all();
+    }
+
+    public function remainingItemsCount(int $previewLimit = 2): int
+    {
+        $total = $this->relationLoaded('items')
+            ? $this->items->count()
+            : $this->items()->count();
+
+        return max(0, $total - $previewLimit);
+    }
+
+    public function isLoadingChecklistReviewed(): bool
+    {
+        if (! $this->items()->exists()) {
+            return true;
+        }
+
+        return ! $this->items()
+            ->whereNull('load_reviewed_at')
+            ->exists();
+    }
+
+    public function loadedItemsCount(): int
+    {
+        return $this->items()
+            ->where('is_loaded', true)
+            ->count();
     }
 }

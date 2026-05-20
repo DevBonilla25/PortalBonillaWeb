@@ -14,6 +14,14 @@ class TicketWorkflowService
             ? $ticket->status
             : TicketStatus::from($ticket->status);
 
+        if (
+            $currentStatus === TicketStatus::Loaded
+            && $nextStatus === TicketStatus::Dispatched
+            && ! $ticket->isLoadingChecklistReviewed()
+        ) {
+            throw new DomainException('Debes revisar el checklist de carga antes de despachar el ticket.');
+        }
+
         if (! $currentStatus->canTransitionTo($nextStatus)) {
             throw new DomainException("No se puede cambiar el ticket de {$currentStatus->value} a {$nextStatus->value}.");
         }
@@ -37,7 +45,7 @@ class TicketWorkflowService
     private function timestampsFor(TicketStatus $status): array
     {
         return match ($status) {
-            TicketStatus::AssignedToWarehouse => ['assigned_at' => now()],
+            TicketStatus::AssignedToWarehouse, TicketStatus::Picking => ['assigned_at' => now()],
             TicketStatus::Dispatched => ['dispatched_at' => now()],
             TicketStatus::Delivered => ['delivered_at' => now(), 'closed_at' => now()],
             TicketStatus::Returning => ['returned_at' => now()],

@@ -23,8 +23,8 @@ enum TicketStatus: string
         return match ($this) {
             self::Created => 'Creado',
             self::SentToWarehouse => 'Enviado a bodega',
-            self::AssignedToWarehouse => 'Asignado en bodega',
-            self::Picking => 'Preparando',
+            self::AssignedToWarehouse => 'En preparación',
+            self::Picking => 'En preparación',
             self::Loading => 'Cargando',
             self::Loaded => 'Cargado',
             self::Dispatched => 'Despachado',
@@ -44,10 +44,10 @@ enum TicketStatus: string
     {
         return match ($this) {
             self::Created => [self::SentToWarehouse, self::Cancelled],
-            self::SentToWarehouse => [self::AssignedToWarehouse, self::Cancelled],
-            self::AssignedToWarehouse => [self::Picking, self::Cancelled],
-            self::Picking => [self::Loading, self::DeliveryFailed],
-            self::Loading => [self::Loaded, self::DeliveryFailed],
+            self::SentToWarehouse => [self::Picking, self::Cancelled],
+            self::AssignedToWarehouse => [self::Picking, self::Loading, self::Cancelled],
+            self::Picking => [self::Loading, self::DeliveryFailed, self::Cancelled],
+            self::Loading => [self::Dispatched, self::DeliveryFailed],
             self::Loaded => [self::Dispatched, self::Cancelled],
             self::Dispatched => [self::InRoute],
             self::InRoute => [self::Delivered, self::DeliveryFailed],
@@ -55,6 +55,24 @@ enum TicketStatus: string
             self::Returning => [self::ArrivedBack],
             self::ArrivedBack, self::Cancelled => [],
         };
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function warehousePanelStatuses(): array
+    {
+        return [
+            self::SentToWarehouse,
+            self::Picking,
+            self::Loading,
+            self::Dispatched,
+        ];
+    }
+
+    public function isWarehousePanelStatus(): bool
+    {
+        return in_array($this, self::warehousePanelStatuses(), true);
     }
 
     public function canTransitionTo(self $nextStatus): bool

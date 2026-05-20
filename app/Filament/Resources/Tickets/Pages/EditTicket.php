@@ -18,6 +18,7 @@ class EditTicket extends EditRecord
             TicketRecordActions::sendToWarehouse(),
             TicketRecordActions::assignResources(),
             TicketRecordActions::changeStatus(),
+            TicketRecordActions::reviewLoadingChecklist(),
             ViewAction::make(),
             DeleteAction::make(),
         ];

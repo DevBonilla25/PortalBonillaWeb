@@ -17,6 +17,7 @@ class ViewTicket extends ViewRecord
             TicketRecordActions::sendToWarehouse(),
             TicketRecordActions::assignResources(),
             TicketRecordActions::changeStatus(),
+            TicketRecordActions::reviewLoadingChecklist(),
             EditAction::make(),
         ];
     }

@@ -4,18 +4,23 @@ namespace App\Filament\Resources\Tickets\Actions;
 
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
+use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
 use App\Actions\Tickets\SendTicketToWarehouseAction;
 use App\Enums\TicketStatus;
 use App\Models\DriverProfile;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Support\Tickets\LoadingChecklistForm;
+use App\Support\Tickets\LoadingChecklistValidation;
+use App\Support\Tickets\TicketAssignmentForm;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class TicketRecordActions
 {
@@ -53,8 +58,13 @@ class TicketRecordActions
             ->color('warning')
             ->visible(fn (Ticket $record): bool => in_array($record->status, [
                 TicketStatus::SentToWarehouse,
+                TicketStatus::Picking,
                 TicketStatus::AssignedToWarehouse,
             ], true))
+            ->modalHeading(fn (Ticket $record): string => TicketAssignmentForm::hasExistingAssignment($record)
+                ? 'Actualizar asignación'
+                : 'Asignar recursos')
+            ->fillForm(fn (Ticket $record): array => TicketAssignmentForm::defaultState($record))
             ->form([
                 Select::make('driver_id')
                     ->label('Chofer')
@@ -159,6 +169,68 @@ class TicketRecordActions
                 } catch (DomainException $exception) {
                     Notification::make()
                         ->title('No se pudo cambiar el estado')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
+    public static function reviewLoadingChecklist(): Action
+    {
+        return Action::make('reviewLoadingChecklist')
+            ->label('Revisar carga')
+            ->icon('heroicon-o-clipboard-document-check')
+            ->color('warning')
+            ->visible(fn (Ticket $record): bool => in_array($record->status, [
+                TicketStatus::Loaded,
+            ], true) && $record->items()->exists())
+            ->fillForm(fn (Ticket $record): array => [
+                'items' => $record->items()
+                    ->orderBy('id')
+                    ->get()
+                    ->map(fn ($item): array => [
+                        'id' => $item->id,
+                        'product_name' => $item->product_name,
+                        'quantity' => $item->quantity,
+                        'loaded_quantity' => $item->loaded_quantity ?? $item->quantity,
+                        'is_loaded' => (bool) $item->is_loaded,
+                        'load_observation' => $item->load_observation,
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->form([
+                LoadingChecklistForm::repeater(),
+            ])
+            ->action(function (Ticket $record, array $data): void {
+                try {
+                    LoadingChecklistValidation::validateOrThrow($data['items'] ?? []);
+
+                    app(ReviewTicketLoadingChecklistAction::class)->execute(
+                        ticket: $record,
+                        items: $data['items'] ?? [],
+                        reviewedBy: Auth::user(),
+                    );
+
+                    Notification::make()
+                        ->title('Checklist revisado')
+                        ->success()
+                        ->send();
+                } catch (ValidationException $exception) {
+                    $message = collect($exception->errors())->flatten()->first()
+                        ?? 'Revisa el checklist de carga.';
+
+                    Notification::make()
+                        ->title('Checklist incompleto')
+                        ->body($message)
+                        ->danger()
+                        ->send();
+
+                    throw $exception;
+                } catch (DomainException $exception) {
+                    Notification::make()
+                        ->title('No se pudo revisar la carga')
                         ->body($exception->getMessage())
                         ->danger()
                         ->send();
