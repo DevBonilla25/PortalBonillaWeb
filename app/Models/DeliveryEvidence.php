@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class DeliveryEvidence extends Model
 {
+    protected $table = 'delivery_evidences';
+
     protected function casts(): array
     {
         return [

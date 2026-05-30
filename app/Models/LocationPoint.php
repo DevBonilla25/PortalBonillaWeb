@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class LocationPoint extends Model
 {
+    protected $table = 'location_points';
+
     protected function casts(): array
     {
         return [

@@ -8,6 +8,8 @@ use Filament\Schemas\Schema;
 
 class DriverProfileInfolist
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -22,7 +24,7 @@ class DriverProfileInfolist
                 TextEntry::make('license_expires_at')->label('Vence')->date()->placeholder('-'),
                 TextEntry::make('last_latitude')->label('Ultima latitud')->placeholder('-'),
                 TextEntry::make('last_longitude')->label('Ultima longitud')->placeholder('-'),
-                TextEntry::make('last_connection_at')->label('Ultima conexion')->dateTime()->placeholder('-'),
+                TextEntry::make('last_connection_at')->label('Ultima conexion')->dateTime(timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
                 TextEntry::make('observations')
                     ->label('Observaciones')
                     ->placeholder('-')
