@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class TicketNovelty extends Model
 {
+    protected $table = 'ticket_novelties';
+
     protected function casts(): array
     {
         return [
