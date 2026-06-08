@@ -48,7 +48,7 @@ class UserForm
                             ->revealable()
                             ->dehydrated(false)
                             ->required(fn (string $operation): bool => $operation === 'create'),
-                            TextInput::make('phone')
+                        TextInput::make('phone')
                             ->label('Teléfono')
                             ->tel()
                             ->maxLength(50),
@@ -120,6 +120,12 @@ class UserForm
                                     $set('phone', $employee->phone);
                                 }
                             }),
+                        TextInput::make('morfeus_user_id')
+                            ->label('Usuario Morfeus')
+                            ->helperText('Codigo del cajero en Morfeus: Usuario.Codigo.')
+                            ->numeric()
+                            ->minValue(1)
+                            ->nullable(),
                     ]),
                 Section::make('Roles y permisos')
                     ->schema([
