@@ -18,6 +18,7 @@ class DriverTicketResource extends JsonResource
             'guide_number' => $this->guide_number,
             'customer_name' => $this->customer_name,
             'customer_phone' => $this->customer_phone,
+            'customer_phone_2' => $this->customer_phone_2,
             'delivery_address' => $this->delivery_address,
             'delivery_reference' => $this->delivery_reference,
             'priority' => $this->priority?->value,

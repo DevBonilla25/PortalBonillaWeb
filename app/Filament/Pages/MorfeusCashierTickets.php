@@ -3,21 +3,26 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasLogisticsNavigation;
+use App\Filament\Resources\Tickets\TicketResource;
 use App\Services\Morfeus\MorfeusTicketService;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Url;
+use Livewire\WithPagination;
 use Throwable;
 
 class MorfeusCashierTickets extends Page
 {
     use HasLogisticsNavigation;
+    use WithPagination;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
@@ -48,7 +53,7 @@ class MorfeusCashierTickets extends Page
     #[Url(as: 'vista')]
     public string $mode = 'pending_warehouse';
 
-    public string $limit = '100';
+    public int $perPage = 10;
 
     public ?string $loadError = null;
 
@@ -75,15 +80,15 @@ class MorfeusCashierTickets extends Page
     }
 
     /**
-     * @return Collection<int, array<string, mixed>>
+     * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function getTicketsProperty(): Collection
+    public function getTicketsProperty(): LengthAwarePaginator
     {
         $this->loadError = null;
         $user = Auth::user();
 
         if (! $user) {
-            return collect();
+            return new LengthAwarePaginator([], 0, (int) $this->perPage);
         }
 
         try {
@@ -92,7 +97,8 @@ class MorfeusCashierTickets extends Page
                 'date_from' => $this->dateFrom,
                 'date_to' => $this->dateTo,
                 'status' => filled($this->status) ? $this->status : null,
-                'limit' => $this->limit,
+                'per_page' => $this->perPage,
+                'page' => $this->getPage(),
                 'mode' => $this->mode,
             ]);
         } catch (Throwable $exception) {
@@ -104,14 +110,38 @@ class MorfeusCashierTickets extends Page
 
             $this->loadError = 'No se pudo conectar con Morfeus. Revisa la conexion SQL Server.';
 
-            return collect();
+            return new LengthAwarePaginator([], 0, (int) $this->perPage);
         }
+    }
+
+    public function mount(): void
+    {
+        $today = Carbon::today('America/Guayaquil')->toDateString();
+
+        $this->dateFrom ??= $today;
+        $this->dateTo ??= $today;
     }
 
     public function resetFilters(): void
     {
         $this->reset('search', 'dateFrom', 'dateTo', 'status');
-        $this->limit = '100';
+        $today = Carbon::today('America/Guayaquil')->toDateString();
+        $this->dateFrom = $today;
+        $this->dateTo = $today;
+        $this->resetPage();
+    }
+
+    public function updated(string $property): void
+    {
+        if ($property === 'perPage') {
+            $this->perPage = in_array((int) $this->perPage, [10, 25, 50], true)
+                ? (int) $this->perPage
+                : 10;
+        }
+
+        if (in_array($property, ['search', 'dateFrom', 'dateTo', 'status', 'mode', 'perPage'], true)) {
+            $this->resetPage();
+        }
     }
 
     public function openTicketDetail(string $sourceType, int $detailId, ?int $warehouseId = null): void
@@ -151,6 +181,18 @@ class MorfeusCashierTickets extends Page
 
             $this->detailError = 'No se pudo cargar el detalle del ticket Morfeus.';
         }
+    }
+
+    public function createTicketFromMorfeus(int $invoiceId, int $warehouseId): void
+    {
+        Session::put('morfeus_ticket_prefill', [
+            'source_type' => 'pending_invoice',
+            'invoice_id' => $invoiceId,
+            'warehouse_id' => $warehouseId,
+            'user_id' => Auth::id(),
+        ]);
+
+        $this->redirect(TicketResource::getUrl('create'), navigate: false);
     }
 
     public function closeTicketDetail(): void

@@ -2,11 +2,14 @@
 
 namespace App\Services\Morfeus;
 
+use App\Enums\TicketPriority;
+use App\Enums\TicketStatus;
+use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WarehouseExternalMapping;
 use App\Repositories\Morfeus\MorfeusTicketRepository;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 class MorfeusTicketService
 {
@@ -21,19 +24,22 @@ class MorfeusTicketService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, array<string, mixed>>
+     * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function dispatchTicketsForCashier(User $user, array $filters = []): Collection
+    public function dispatchTicketsForCashier(User $user, array $filters = []): LengthAwarePaginator
     {
         if (! $user->morfeus_user_id) {
-            return collect();
+            return new LengthAwarePaginator([], 0, (int) ($filters['per_page'] ?? 10));
         }
 
-        return $this->tickets
-            ->dispatchTicketsForCashier((int) $user->morfeus_user_id, $filters)
+        $tickets = $this->tickets->dispatchTicketsForCashier((int) $user->morfeus_user_id, $filters);
+
+        $tickets->setCollection($tickets->getCollection()
             ->map(fn (object $ticket): array => ($filters['mode'] ?? 'pending_warehouse') === 'pending_warehouse'
-                ? $this->normalizePendingInvoiceTicket($ticket)
-                : $this->normalizeDispatchTicket($ticket));
+                ? $this->normalizePendingInvoiceTicket($ticket, $user)
+                : $this->normalizeDispatchTicket($ticket)));
+
+        return $tickets;
     }
 
     /**
@@ -96,7 +102,7 @@ class MorfeusTicketService
             return null;
         }
 
-        return array_merge($this->normalizePendingInvoiceTicket($header), [
+        return array_merge($this->normalizePendingInvoiceTicket($header, $user), [
             'source_document' => [
                 'external_id' => $header->factura_id,
                 'type' => 'invoice',
@@ -115,6 +121,67 @@ class MorfeusTicketService
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function pendingInvoiceTicketFormDataForCashier(User $user, int $invoiceId, int $warehouseId): ?array
+    {
+        $detail = $this->pendingInvoiceDetailForCashier($user, $invoiceId, $warehouseId);
+
+        if (! $detail) {
+            return null;
+        }
+
+        $mappedWarehouse = $detail['warehouse']['mapped_warehouse'] ?? null;
+        $existingTicket = Ticket::query()
+            ->where('company_id', $user->company_id)
+            ->where('external_source', 'morfeus')
+            ->where('external_invoice_id', $invoiceId)
+            ->where('external_warehouse_id', $warehouseId)
+            ->first();
+
+        return [
+            'existing_ticket_id' => $existingTicket?->id,
+            'form_data' => [
+                'company_id' => $user->company_id,
+                'branch_id' => $mappedWarehouse['branch_id'] ?? null,
+                'warehouse_id' => $mappedWarehouse['id'] ?? null,
+                'cashier_id' => $user->id,
+                'ticket_code' => $detail['ticket_number'],
+                'guide_number' => $detail['ticket_number'],
+                'customer_name' => $detail['customer']['name'] ?? $detail['customer']['recipient_name'] ?? 'Cliente Morfeus',
+                'customer_phone' => $detail['customer']['phone'] ?? null,
+                'customer_phone_2' => null,
+                'delivery_address' => $detail['customer']['delivery_address'] ?? 'Pendiente de completar',
+                'delivery_reference' => null,
+                'priority' => TicketPriority::Normal->value,
+                'status' => TicketStatus::Created->value,
+                'external_source' => 'morfeus',
+                'external_source_type' => 'pending_invoice',
+                'external_invoice_id' => $invoiceId,
+                'external_document_number' => $detail['ticket_number'],
+                'external_warehouse_id' => $warehouseId,
+                'external_cashier_id' => $detail['cashier']['external_id'] ?? null,
+                'external_snapshot' => $detail,
+                'items' => collect($detail['items'] ?? [])
+                    ->map(fn (array $item): array => [
+                        'product_code' => $item['barcode'] ?? $item['alternative_code'] ?? null,
+                        'external_line' => $item['line'] ?? null,
+                        'external_item_id' => $item['external_item_id'] ?? null,
+                        'external_unit_id' => $item['unit']['external_id'] ?? null,
+                        'external_snapshot' => $item,
+                        'product_name' => $item['description'] ?? 'Item Morfeus',
+                        'quantity' => $item['pending_quantity'] ?? 0,
+                        'unit' => $item['unit']['name'] ?? null,
+                        'observations' => null,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'detail' => $detail,
+        ];
     }
 
     /**
@@ -150,8 +217,12 @@ class MorfeusTicketService
     /**
      * @return array<string, mixed>
      */
-    private function normalizePendingInvoiceTicket(object $ticket): array
+    private function normalizePendingInvoiceTicket(object $ticket, ?User $user = null): array
     {
+        $localTicket = $user
+            ? $this->localTicketForPendingInvoice($user, (int) $ticket->factura_id, (int) $ticket->bodega_id)
+            : null;
+
         return [
             'source_type' => 'pending_invoice',
             'detail_id' => $ticket->factura_id,
@@ -169,12 +240,38 @@ class MorfeusTicketService
                 'external_id' => $ticket->usuario_id,
                 'name' => $ticket->usuario,
             ],
+            'customer' => [
+                'external_id' => $ticket->cliente_id ?? null,
+                'name' => $this->firstFilled($ticket->cliente_nombre ?? null, $ticket->cliente_catalogo_nombre ?? null),
+                'identification' => $this->firstFilled($ticket->cliente_identificacion ?? null, $ticket->cliente_catalogo_identificacion ?? null),
+                'email' => $this->firstFilled($ticket->cliente_correo ?? null, $ticket->cliente_catalogo_correo ?? null),
+                'recipient_name' => $ticket->destinatario_nombre ?? null,
+                'recipient_identification' => $ticket->destinatario_identificacion ?? null,
+                'phone' => $this->firstFilled($ticket->destinatario_telefono ?? null, $ticket->cliente_catalogo_telefono ?? null),
+                'delivery_address' => $ticket->cliente_catalogo_direccion ?? null,
+                'invoice_observation' => $ticket->observacion_factura ?? null,
+            ],
             'morfeus_status' => $ticket->estado_morfeus,
             'logistic_status' => 'pending',
+            'local_ticket' => [
+                'id' => $localTicket?->id,
+                'status' => $localTicket?->status?->value,
+                'exists' => $localTicket !== null,
+            ],
             'items_count' => $ticket->items_count ?? null,
             'pending_items_count' => $ticket->pending_items_count ?? null,
             'pending_quantity' => $ticket->pending_quantity ?? null,
         ];
+    }
+
+    private function localTicketForPendingInvoice(User $user, int $invoiceId, int $warehouseId): ?Ticket
+    {
+        return Ticket::query()
+            ->where('company_id', $user->company_id)
+            ->where('external_source', 'morfeus')
+            ->where('external_invoice_id', $invoiceId)
+            ->where('external_warehouse_id', $warehouseId)
+            ->first();
     }
 
     /**
@@ -238,6 +335,17 @@ class MorfeusTicketService
         };
     }
 
+    private function firstFilled(mixed ...$values): ?string
+    {
+        foreach ($values as $value) {
+            if (filled($value)) {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -265,6 +373,7 @@ class MorfeusTicketService
             'id' => $mapping->warehouse->id,
             'code' => $mapping->warehouse->code,
             'name' => $mapping->warehouse->name,
+            'branch_id' => $mapping->warehouse->branch_id,
             'external_type' => $mapping->external_type,
         ] : null;
     }
