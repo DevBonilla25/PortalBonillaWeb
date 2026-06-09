@@ -9,7 +9,7 @@
 
             .mf-filters {
                 display: grid;
-                grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 2fr) repeat(4, minmax(8rem, 1fr)) auto;
+                grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto;
                 gap: 0.75rem;
                 align-items: end;
             }
@@ -43,27 +43,48 @@
                 color: rgb(209 213 219);
             }
 
-            .mf-card {
-                overflow: hidden;
-                border-radius: 0.5rem;
-                border: 1px solid rgb(229 231 235);
-                background: #fff;
-                box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+            .mf-table {
+                width: 100%;
+                min-width: 66rem;
+                border-collapse: collapse;
             }
 
-            .dark .mf-card {
+            .mf-table-card {
+                overflow: hidden;
+                border: 1px solid rgb(229 231 235);
+                border-radius: 0.75rem;
+                background: #fff;
+                box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            }
+
+            .dark .mf-table-card {
                 border-color: rgb(255 255 255 / 0.1);
                 background: rgb(17 24 39);
             }
 
-            .mf-table-wrap {
+            .mf-table-summary {
+                padding: 1rem 1.5rem;
+                border-bottom: 1px solid rgb(229 231 235);
+                color: rgb(55 65 81);
+                font-size: 0.875rem;
+            }
+
+            .dark .mf-table-summary {
+                border-bottom-color: rgb(255 255 255 / 0.08);
+                color: rgb(209 213 219);
+            }
+
+            .mf-table-scroll {
                 overflow-x: auto;
             }
 
-            .mf-table {
-                width: 100%;
-                min-width: 62rem;
-                border-collapse: collapse;
+            .mf-table-footer {
+                padding: 0.75rem 1.5rem;
+                border-top: 1px solid rgb(229 231 235);
+            }
+
+            .dark .mf-table-footer {
+                border-top-color: rgb(255 255 255 / 0.08);
             }
 
             .mf-table th,
@@ -219,10 +240,10 @@
                     <div class="mf-field">
                         <label class="mf-label">Vista</label>
                         <x-filament::input.wrapper>
-                            <select wire:model.live="mode" class="fi-input block w-full border-none bg-transparent py-1.5 text-base text-gray-950 outline-none transition duration-75 placeholder:text-gray-400 focus:ring-0 disabled:text-gray-500 sm:text-sm dark:text-white dark:placeholder:text-gray-500">
+                            <x-filament::input.select wire:model.live="mode">
                                 <option value="pending_warehouse">Pendientes bodega</option>
                                 <option value="all">Historial Morfeus</option>
-                            </select>
+                            </x-filament::input.select>
                         </x-filament::input.wrapper>
                     </div>
 
@@ -254,19 +275,7 @@
                     <div class="mf-field">
                         <label class="mf-label">Estado</label>
                         <x-filament::input.wrapper>
-                            <x-filament::input type="text" wire:model.live.debounce.400ms="status" placeholder="P" />
-                        </x-filament::input.wrapper>
-                    </div>
-
-                    <div class="mf-field">
-                        <label class="mf-label">Limite</label>
-                        <x-filament::input.wrapper>
-                            <select wire:model.live="limit" class="fi-input block w-full border-none bg-transparent py-1.5 text-base text-gray-950 outline-none transition duration-75 placeholder:text-gray-400 focus:ring-0 disabled:text-gray-500 sm:text-sm dark:text-white dark:placeholder:text-gray-500">
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="300">300</option>
-                            </select>
+                            <x-filament::input type="text" wire:model.live.debounce.400ms="status" placeholder="P, V, A..." />
                         </x-filament::input.wrapper>
                     </div>
 
@@ -287,11 +296,16 @@
                 </x-filament::section>
             @endif
 
-            <div class="mf-card">
-                <div class="mf-table-wrap">
+            <div class="mf-table-card">
+                <div class="mf-table-summary">
+                    {{ $tickets->total() === 1 ? '1 ticket' : $tickets->total() . ' tickets' }}
+                </div>
+
+                <div class="mf-table-scroll">
                     <table class="mf-table">
                         <thead>
                             <tr>
+                                <th>#</th>
                                 <th>Ticket</th>
                                 <th>Fecha</th>
                                 <th>Bodega</th>
@@ -306,6 +320,9 @@
                         <tbody>
                             @forelse ($tickets as $ticket)
                                 <tr wire:key="morfeus-ticket-{{ $ticket['source_type'] }}-{{ $ticket['detail_id'] }}-{{ $ticket['warehouse']['external_id'] ?? 0 }}">
+                                    <td class="mf-muted">
+                                        {{ $tickets->firstItem() + $loop->index }}
+                                    </td>
                                     <td>
                                         <div class="mf-ticket">{{ $ticket['ticket_number'] }}</div>
                                         <div class="mf-muted">
@@ -351,24 +368,42 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <x-filament::button
-                                            size="sm"
-                                            color="gray"
-                                            wire:click="openTicketDetail('{{ $ticket['source_type'] }}', {{ (int) $ticket['detail_id'] }}, {{ (int) ($ticket['warehouse']['external_id'] ?? 0) }})"
-                                        >
-                                            Ver
-                                        </x-filament::button>
+                                        @if ($ticket['source_type'] === 'pending_invoice')
+                                            <x-filament::button
+                                                size="sm"
+                                                :color="($ticket['local_ticket']['exists'] ?? false) ? 'gray' : 'primary'"
+                                                wire:click="createTicketFromMorfeus({{ (int) $ticket['detail_id'] }}, {{ (int) ($ticket['warehouse']['external_id'] ?? 0) }})"
+                                            >
+                                                Crear ticket
+                                            </x-filament::button>
+                                        @else
+                                            <x-filament::button
+                                                size="sm"
+                                                color="gray"
+                                                wire:click="openTicketDetail('{{ $ticket['source_type'] }}', {{ (int) $ticket['detail_id'] }}, {{ (int) ($ticket['warehouse']['external_id'] ?? 0) }})"
+                                            >
+                                                Ver
+                                            </x-filament::button>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9">
+                                    <td colspan="10">
                                         <div class="mf-empty">No hay tickets Morfeus para los filtros actuales.</div>
                                     </td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+
+                <div class="mf-table-footer">
+                    <x-filament::pagination
+                        :paginator="$tickets"
+                        current-page-option-property="perPage"
+                        :page-options="[10, 25, 50]"
+                    />
                 </div>
             </div>
 
@@ -446,49 +481,51 @@
                                     </x-filament::section>
                                 @endif
 
-                                <div class="mf-card" style="margin-top: 1rem;">
-                                    <div class="mf-table-wrap">
-                                        <table class="mf-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Linea</th>
-                                                    <th>Producto</th>
-                                                    <th>Codigos</th>
-                                                    <th>Unidad</th>
-                                                    <th>Cant. a despachar</th>
-                                                    <th>Cant. despachada</th>
-                                                    <th>Pendiente</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @forelse (($selectedTicket['items'] ?? []) as $item)
+                                <div class="fi-ta" style="margin-top: 1rem;">
+                                    <div class="fi-ta-ctn">
+                                        <div class="fi-ta-content-ctn fi-fixed-positioning-context">
+                                            <table class="mf-table">
+                                                <thead>
                                                     <tr>
-                                                        <td>{{ $item['line'] ?? '-' }}</td>
-                                                        <td>
-                                                            <div>{{ $item['description'] ?? '-' }}</div>
-                                                            <div class="mf-muted">ID {{ $item['external_item_id'] ?? '-' }}</div>
-                                                        </td>
-                                                        <td>
-                                                            <div>{{ $item['barcode'] ?? '-' }}</div>
-                                                            <div class="mf-muted">{{ $item['alternative_code'] ?? '-' }}</div>
-                                                        </td>
-                                                        <td>
-                                                            <div>{{ $item['unit']['name'] ?? '-' }}</div>
-                                                            <div class="mf-muted">ID {{ $item['unit']['external_id'] ?? '-' }}</div>
-                                                        </td>
-                                                        <td>{{ $item['quantity_to_dispatch'] ?? '-' }}</td>
-                                                        <td>{{ $item['quantity_dispatched'] ?? '-' }}</td>
-                                                        <td>{{ $item['pending_quantity'] ?? '-' }}</td>
+                                                        <th>Linea</th>
+                                                        <th>Producto</th>
+                                                        <th>Codigos</th>
+                                                        <th>Unidad</th>
+                                                        <th>Cant. a despachar</th>
+                                                        <th>Cant. despachada</th>
+                                                        <th>Pendiente</th>
                                                     </tr>
-                                                @empty
-                                                    <tr>
-                                                        <td colspan="7">
-                                                            <div class="mf-empty">Este ticket no tiene items registrados en Morfeus.</div>
-                                                        </td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse (($selectedTicket['items'] ?? []) as $item)
+                                                        <tr>
+                                                            <td>{{ $item['line'] ?? '-' }}</td>
+                                                            <td>
+                                                                <div>{{ $item['description'] ?? '-' }}</div>
+                                                                <div class="mf-muted">ID {{ $item['external_item_id'] ?? '-' }}</div>
+                                                            </td>
+                                                            <td>
+                                                                <div>{{ $item['barcode'] ?? '-' }}</div>
+                                                                <div class="mf-muted">{{ $item['alternative_code'] ?? '-' }}</div>
+                                                            </td>
+                                                            <td>
+                                                                <div>{{ $item['unit']['name'] ?? '-' }}</div>
+                                                                <div class="mf-muted">ID {{ $item['unit']['external_id'] ?? '-' }}</div>
+                                                            </td>
+                                                            <td>{{ $item['quantity_to_dispatch'] ?? '-' }}</td>
+                                                            <td>{{ $item['quantity_dispatched'] ?? '-' }}</td>
+                                                            <td>{{ $item['pending_quantity'] ?? '-' }}</td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="7">
+                                                                <div class="mf-empty">Este ticket no tiene items registrados en Morfeus.</div>
+                                                            </td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             @endif

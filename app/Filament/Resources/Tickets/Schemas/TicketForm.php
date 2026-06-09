@@ -7,6 +7,8 @@ use App\Enums\TicketStatus;
 use App\Models\Company;
 use App\Models\Contact;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -16,6 +18,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 class TicketForm
 {
@@ -37,6 +40,8 @@ class TicketForm
                         TextInput::make('ticket_code')
                             ->label('Codigo de ticket')
                             ->required()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated()
                             ->maxLength(100)
                             ->unique(
                                 ignoreRecord: true,
@@ -45,6 +50,8 @@ class TicketForm
                             ->dehydrateStateUsing(fn (?string $state): ?string => $state ? strtoupper($state) : null),
                         TextInput::make('guide_number')
                             ->label('Numero de guia')
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated()
                             ->maxLength(100),
                         Select::make('branch_id')
                             ->label('Sucursal')
@@ -55,7 +62,9 @@ class TicketForm
                             )
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated(),
                         Select::make('warehouse_id')
                             ->label('Bodega')
                             ->relationship(
@@ -65,7 +74,9 @@ class TicketForm
                             )
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated(),
                         Select::make('zone_id')
                             ->label('Zona')
                             ->relationship(
@@ -87,14 +98,16 @@ class TicketForm
                             ->required()
                             ->default(TicketStatus::Created->value)
                             ->disabled()
-                            ->dehydrated(false),
+                            ->dehydrated(),
                         Select::make('cashier_id')
                             ->label('Cajero')
                             ->relationship('cashier', 'name')
                             ->default(fn () => Auth::id())
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated(),
                     ]),
                 Section::make('Cliente y destino')
                     ->columns(2)
@@ -110,6 +123,8 @@ class TicketForm
                             ->searchable(['first_name', 'last_name', 'business_name', 'identification_number'])
                             ->preload()
                             ->nullable()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated()
                             ->live()
                             ->afterStateUpdated(function (?string $state, Set $set): void {
                                 if (blank($state)) {
@@ -129,9 +144,15 @@ class TicketForm
                         TextInput::make('customer_name')
                             ->label('Cliente')
                             ->required()
+                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                            ->dehydrated()
                             ->maxLength(255),
                         TextInput::make('customer_phone')
                             ->label('Telefono')
+                            ->tel()
+                            ->maxLength(50),
+                        TextInput::make('customer_phone_2')
+                            ->label('Telefono 2')
                             ->tel()
                             ->maxLength(50),
                         Textarea::make('delivery_address')
@@ -139,7 +160,7 @@ class TicketForm
                             ->required()
                             ->columnSpanFull(),
                         Textarea::make('delivery_reference')
-                            ->label('Referencia')
+                            ->label('Referencia y Observaciones')
                             ->columnSpanFull(),
                     ]),
                 Section::make('Asignacion inicial')
@@ -164,6 +185,7 @@ class TicketForm
                             ->dehydrated(false),
                     ]),
                 Section::make('Productos')
+                    ->hidden(fn (Get $get): bool => $get('external_source') === 'morfeus')
                     ->schema([
                         Repeater::make('items')
                             ->label('Productos')
@@ -171,25 +193,47 @@ class TicketForm
                             ->schema([
                                 TextInput::make('product_code')
                                     ->label('Codigo')
-                                    ->maxLength(100),
+                                    ->maxLength(100)
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
+                                Hidden::make('external_line'),
+                                Hidden::make('external_item_id'),
+                                Hidden::make('external_unit_id'),
+                                Hidden::make('external_snapshot'),
                                 TextInput::make('product_name')
                                     ->label('Producto')
                                     ->required()
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated()
                                     ->maxLength(255),
                                 TextInput::make('quantity')
                                     ->label('Cantidad')
                                     ->numeric()
                                     ->default(1)
-                                    ->required(),
+                                    ->required()
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
                                 TextInput::make('unit')
                                     ->label('Unidad')
-                                    ->maxLength(50),
+                                    ->maxLength(50)
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
                                 Textarea::make('observations')
                                     ->label('Observaciones')
                                     ->columnSpanFull(),
                             ])
                             ->columns(4)
+                            ->addable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
+                            ->deletable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
+                            ->reorderable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
                             ->defaultItems(1),
+                    ]),
+                Section::make('Productos Morfeus')
+                    ->visible(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                    ->schema([
+                        Placeholder::make('morfeus_items_preview')
+                            ->label('')
+                            ->content(fn (Get $get): HtmlString => self::morfeusItemsPreview($get('external_snapshot'))),
                     ]),
                 Section::make('Documento y observaciones')
                     ->schema([
@@ -202,6 +246,56 @@ class TicketForm
                             ->label('Observaciones')
                             ->columnSpanFull(),
                     ]),
+                Hidden::make('external_source'),
+                Hidden::make('external_source_type'),
+                Hidden::make('external_invoice_id'),
+                Hidden::make('external_document_number'),
+                Hidden::make('external_warehouse_id'),
+                Hidden::make('external_cashier_id'),
+                Hidden::make('external_snapshot'),
             ]);
+    }
+
+    private static function morfeusItemsPreview(mixed $snapshot): HtmlString
+    {
+        $items = is_array($snapshot) ? ($snapshot['items'] ?? []) : [];
+
+        if ($items === []) {
+            return new HtmlString('<p class="text-sm text-gray-500">No se recibieron productos desde Morfeus.</p>');
+        }
+
+        $rows = collect($items)
+            ->map(function (array $item): string {
+                $code = e($item['barcode'] ?? $item['alternative_code'] ?? $item['external_item_id'] ?? '-');
+                $product = e($item['description'] ?? '-');
+                $quantity = e((string) ($item['pending_quantity'] ?? '-'));
+                $unit = e($item['unit']['name'] ?? '-');
+
+                return <<<HTML
+                    <tr>
+                        <td style="padding: 0.625rem; border-top: 1px solid rgb(229 231 235);">{$code}</td>
+                        <td style="padding: 0.625rem; border-top: 1px solid rgb(229 231 235);">{$product}</td>
+                        <td style="padding: 0.625rem; border-top: 1px solid rgb(229 231 235); text-align: right;">{$quantity}</td>
+                        <td style="padding: 0.625rem; border-top: 1px solid rgb(229 231 235);">{$unit}</td>
+                    </tr>
+                HTML;
+            })
+            ->implode('');
+
+        return new HtmlString(<<<HTML
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; min-width: 40rem; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 0.625rem; text-align: left;">Codigo</th>
+                            <th style="padding: 0.625rem; text-align: left;">Producto</th>
+                            <th style="padding: 0.625rem; text-align: right;">Pendiente</th>
+                            <th style="padding: 0.625rem; text-align: left;">Unidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>{$rows}</tbody>
+                </table>
+            </div>
+        HTML);
     }
 }

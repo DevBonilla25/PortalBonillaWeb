@@ -33,11 +33,11 @@ class TicketsTable
             ]))
             ->columns([
                 TextColumn::make('ticket_code')
-                    ->label('Código')
+                    ->label('N° Documento')
                     ->searchable()
                     ->sortable()
                     ->url(fn ($record): string => TicketResource::getUrl('view', ['record' => $record]))
-                    ->color('primary')
+                    ->color(fn ($record): ?string => $record->status === TicketStatus::Created ? null : 'primary')
                     ->weight('semibold'),
                 TextColumn::make('customer_name')
                     ->label('Cliente')

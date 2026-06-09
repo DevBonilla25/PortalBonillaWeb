@@ -2,22 +2,25 @@
 
 namespace App\Repositories\Morfeus;
 
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\LazyCollection;
 
 class MorfeusTicketRepository
 {
     /**
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, object>
+     * @return LengthAwarePaginator<int, object>
      */
-    public function dispatchTicketsForCashier(int $morfeusUserId, array $filters = []): Collection
+    public function dispatchTicketsForCashier(int $morfeusUserId, array $filters = []): LengthAwarePaginator
     {
-        $limit = min(max((int) ($filters['limit'] ?? 100), 1), 300);
+        $perPage = min(max((int) ($filters['per_page'] ?? 10), 1), 100);
+        $page = max((int) ($filters['page'] ?? 1), 1);
         $mode = $filters['mode'] ?? 'pending_warehouse';
 
         if ($mode === 'pending_warehouse') {
-            return $this->pendingInvoiceTicketsForCashier($morfeusUserId, $filters, $limit);
+            return $this->pendingInvoiceTicketsForCashier($morfeusUserId, $filters, $perPage, $page);
         }
 
         $query = DB::connection('morfeus_sqlsrv')
@@ -52,21 +55,22 @@ class MorfeusTicketRepository
                 });
             })
             ->orderByDesc('d.eCodigo')
-            ->limit($limit)
-            ->get();
+            ->get()
+            ->pipe(fn (Collection $tickets): LengthAwarePaginator => $this->paginateCollection($tickets, $perPage, $page));
     }
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, object>
+     * @return LengthAwarePaginator<int, object>
      */
-    private function pendingInvoiceTicketsForCashier(int $morfeusUserId, array $filters, int $limit): Collection
+    private function pendingInvoiceTicketsForCashier(int $morfeusUserId, array $filters, int $perPage, int $page): LengthAwarePaginator
     {
         return DB::connection('morfeus_sqlsrv')
             ->table('Ven_CabFactura as f')
             ->join('Ven_DetFactura as df', 'df.eiddoc', '=', 'f.eIdDoc')
             ->leftJoin('Inv_Bodega as b', 'b.eCodigo', '=', 'df.eBodEntrega')
             ->leftJoin('Usuario as u', 'u.Codigo', '=', 'f.eUsuario')
+            ->leftJoin('Ven_Cliente as c', 'c.eCodigo', '=', 'f.eCliente')
             ->select([
                 'f.eIdDoc as factura_id',
                 'f.fFecha as fecha_factura',
@@ -77,6 +81,19 @@ class MorfeusTicketRepository
                 'f.eUsuario as usuario_id',
                 'u.Nombre as usuario',
                 'f.aEstado as estado_morfeus',
+                'f.eCliente as cliente_id',
+                'f.aClienteNombre as cliente_nombre',
+                'f.aCedRucCliente as cliente_identificacion',
+                'f.aCorreoClte as cliente_correo',
+                'f.aNombreDestinatario as destinatario_nombre',
+                'f.aCedRucDestinatario as destinatario_identificacion',
+                'f.aTelefonoDestinatario as destinatario_telefono',
+                'f.aObservacion as observacion_factura',
+                'c.aNombre as cliente_catalogo_nombre',
+                'c.aCedRuc as cliente_catalogo_identificacion',
+                'c.aDireccion as cliente_catalogo_direccion',
+                'c.aTelefono as cliente_catalogo_telefono',
+                'c.aCorreo as cliente_catalogo_correo',
             ])
             ->selectRaw('COUNT(df.eLinea) as items_count')
             ->selectRaw('SUM(CASE WHEN ISNULL(df.dCantidad, 0) > ISNULL(df.dCantidadEnt, 0) THEN 1 ELSE 0 END) as pending_items_count')
@@ -106,11 +123,43 @@ class MorfeusTicketRepository
                 'f.eUsuario',
                 'u.Nombre',
                 'f.aEstado',
+                'f.eCliente',
+                'f.aClienteNombre',
+                'f.aCedRucCliente',
+                'f.aCorreoClte',
+                'f.aNombreDestinatario',
+                'f.aCedRucDestinatario',
+                'f.aTelefonoDestinatario',
+                'f.aObservacion',
+                'c.aNombre',
+                'c.aCedRuc',
+                'c.aDireccion',
+                'c.aTelefono',
+                'c.aCorreo',
             ])
             ->havingRaw('SUM(CASE WHEN ISNULL(df.dCantidad, 0) > ISNULL(df.dCantidadEnt, 0) THEN 1 ELSE 0 END) > 0')
             ->orderByDesc('f.eIdDoc')
-            ->limit($limit)
-            ->get();
+            ->get()
+            ->pipe(fn (Collection $tickets): LengthAwarePaginator => $this->paginateCollection($tickets, $perPage, $page));
+    }
+
+    /**
+     * SQL Server de Morfeus puede estar en compatibilidad antigua y rechazar OFFSET/FETCH.
+     *
+     * @param  Collection<int, object>|LazyCollection<int, object>  $records
+     * @return LengthAwarePaginator<int, object>
+     */
+    private function paginateCollection(Collection|LazyCollection $records, int $perPage, int $page): LengthAwarePaginator
+    {
+        $records = $records instanceof LazyCollection ? $records->collect() : $records;
+
+        return new LengthAwarePaginator(
+            items: $records->forPage($page, $perPage)->values(),
+            total: $records->count(),
+            perPage: $perPage,
+            currentPage: $page,
+            options: ['pageName' => 'page'],
+        );
     }
 
     public function pendingInvoiceForCashier(int $morfeusUserId, int $invoiceId, int $warehouseId): ?object
@@ -119,6 +168,7 @@ class MorfeusTicketRepository
             ->table('Ven_CabFactura as f')
             ->leftJoin('Usuario as u', 'u.Codigo', '=', 'f.eUsuario')
             ->leftJoin('Inv_Bodega as b', 'b.eCodigo', '=', DB::raw($warehouseId))
+            ->leftJoin('Ven_Cliente as c', 'c.eCodigo', '=', 'f.eCliente')
             ->select([
                 'f.eIdDoc as factura_id',
                 'f.fFecha as fecha_factura',
@@ -129,6 +179,19 @@ class MorfeusTicketRepository
                 'f.aEstado as estado_morfeus',
                 'b.eCodigo as bodega_id',
                 'b.aDescripcion as bodega',
+                'f.eCliente as cliente_id',
+                'f.aClienteNombre as cliente_nombre',
+                'f.aCedRucCliente as cliente_identificacion',
+                'f.aCorreoClte as cliente_correo',
+                'f.aNombreDestinatario as destinatario_nombre',
+                'f.aCedRucDestinatario as destinatario_identificacion',
+                'f.aTelefonoDestinatario as destinatario_telefono',
+                'f.aObservacion as observacion_factura',
+                'c.aNombre as cliente_catalogo_nombre',
+                'c.aCedRuc as cliente_catalogo_identificacion',
+                'c.aDireccion as cliente_catalogo_direccion',
+                'c.aTelefono as cliente_catalogo_telefono',
+                'c.aCorreo as cliente_catalogo_correo',
             ])
             ->where('f.eUsuario', $morfeusUserId)
             ->where('f.eIdDoc', $invoiceId)

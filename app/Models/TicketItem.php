@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'ticket_id',
     'product_code',
+    'external_line',
+    'external_item_id',
+    'external_unit_id',
+    'external_snapshot',
     'product_name',
     'quantity',
     'loaded_quantity',
@@ -27,6 +31,7 @@ class TicketItem extends Model
             'quantity' => 'decimal:2',
             'loaded_quantity' => 'decimal:2',
             'is_loaded' => 'boolean',
+            'external_snapshot' => 'array',
             'load_reviewed_at' => 'datetime',
         ];
     }

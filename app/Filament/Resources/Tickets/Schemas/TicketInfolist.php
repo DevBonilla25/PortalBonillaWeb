@@ -22,6 +22,7 @@ class TicketInfolist
                 TextEntry::make('cashier.name')->label('Cajero')->placeholder('-'),
                 TextEntry::make('customer_name')->label('Cliente'),
                 TextEntry::make('customer_phone')->label('Telefono')->placeholder('-'),
+                TextEntry::make('customer_phone_2')->label('Telefono 2')->placeholder('-'),
                 TextEntry::make('delivery_address')->label('Direccion')->columnSpanFull(),
                 TextEntry::make('delivery_reference')->label('Referencia')->placeholder('-')->columnSpanFull(),
                 TextEntry::make('currentDriver.user.name')->label('Chofer')->placeholder('-'),
