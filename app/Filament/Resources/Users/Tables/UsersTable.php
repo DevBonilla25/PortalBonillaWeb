@@ -33,6 +33,11 @@ class UsersTable
                     ->label('Empleado')
                     ->placeholder('—')
                     ->sortable(['employees.first_name']),
+                TextColumn::make('morfeus_user_id')
+                    ->label('Morfeus')
+                    ->placeholder('-')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('roles.name')
                     ->label('Roles')
                     ->badge()

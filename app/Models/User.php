@@ -18,6 +18,7 @@ use Spatie\Permission\Traits\HasRoles;
 #[Fillable([
     'company_id',
     'employee_id',
+    'morfeus_user_id',
     'name',
     'email',
     'password',
