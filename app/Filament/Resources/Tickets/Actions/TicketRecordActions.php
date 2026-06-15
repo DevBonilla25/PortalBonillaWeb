@@ -50,6 +50,37 @@ class TicketRecordActions
             });
     }
 
+    public static function cancelTicket(): Action
+    {
+        return Action::make('cancelTicket')
+            ->label('Cancelar')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->visible(fn (Ticket $record): bool => $record->status === TicketStatus::Created)
+            ->action(function (Ticket $record): void {
+                try {
+                    app(ChangeTicketStatusAction::class)->execute(
+                        ticket: $record,
+                        nextStatus: TicketStatus::Cancelled,
+                        user: Auth::user(),
+                        description: 'Ticket cancelado desde panel.',
+                    );
+
+                    Notification::make()
+                        ->title('Ticket cancelado')
+                        ->success()
+                        ->send();
+                } catch (DomainException $exception) {
+                    Notification::make()
+                        ->title('No se pudo cancelar el ticket')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
     public static function assignResources(): Action
     {
         return Action::make('assignResources')

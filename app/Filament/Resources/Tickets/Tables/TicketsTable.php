@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
 
 class TicketsTable
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -31,11 +33,11 @@ class TicketsTable
             ]))
             ->columns([
                 TextColumn::make('ticket_code')
-                    ->label('Código')
+                    ->label('N° Documento')
                     ->searchable()
                     ->sortable()
                     ->url(fn ($record): string => TicketResource::getUrl('view', ['record' => $record]))
-                    ->color('primary')
+                    ->color(fn ($record): ?string => $record->status === TicketStatus::Created ? null : 'primary')
                     ->weight('semibold'),
                 TextColumn::make('customer_name')
                     ->label('Cliente')
@@ -79,7 +81,7 @@ class TicketsTable
                 TextColumn::make('updated_at')
                     ->label('Últ. act.')
                     ->formatStateUsing(fn ($state): string => static::formatLastActivity($state))
-                    ->dateTimeTooltip('d/m/Y H:i')
+                    ->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
             ])
             ->defaultSort('updated_at', 'desc')
@@ -162,7 +164,7 @@ class TicketsTable
             return '-';
         }
 
-        $date = Carbon::parse($state);
+        $date = Carbon::parse($state)->timezone(self::DISPLAY_TIMEZONE);
 
         if ($date->isToday()) {
             return $date->format('H:i');

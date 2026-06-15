@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 
 class EventsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'events';
 
     protected static ?string $title = 'Historial';
@@ -25,7 +27,7 @@ class EventsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('occurred_at')
                     ->label('Fecha')
-                    ->dateTime()
+                    ->dateTime(timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
                 TextColumn::make('event_type')
                     ->label('Evento')

@@ -15,6 +15,8 @@ use Filament\Tables\Table;
 
 class DriverProfilesTable
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -24,7 +26,7 @@ class DriverProfilesTable
                 TextColumn::make('defaultVehicle.plate')->label('Vehiculo')->placeholder('-'),
                 TextColumn::make('license_number')->label('Licencia')->placeholder('-')->searchable(),
                 TextColumn::make('status')->label('Estado')->badge()->sortable(),
-                TextColumn::make('last_connection_at')->label('Ultima conexion')->dateTime()->placeholder('-'),
+                TextColumn::make('last_connection_at')->label('Ultima conexion')->dateTime(timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
                 IconColumn::make('is_active')->label('Activo')->boolean(),
             ])
             ->defaultSort('created_at', 'desc')

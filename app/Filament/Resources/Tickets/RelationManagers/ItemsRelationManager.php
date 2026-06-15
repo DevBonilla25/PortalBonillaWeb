@@ -10,6 +10,8 @@ use Filament\Tables\Table;
 
 class ItemsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'items';
 
     protected static ?string $title = 'Productos';
@@ -43,7 +45,7 @@ class ItemsRelationManager extends RelationManager
                     ->placeholder('-'),
                 TextColumn::make('load_reviewed_at')
                     ->label('Revisado')
-                    ->dateTime()
+                    ->dateTime(timezone: self::DISPLAY_TIMEZONE)
                     ->placeholder('-'),
                 TextColumn::make('load_observation')
                     ->label('Observacion')

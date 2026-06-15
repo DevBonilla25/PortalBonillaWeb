@@ -23,8 +23,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'ticket_code',
     'guide_number',
     'source_image_path',
+    'external_source',
+    'external_source_type',
+    'external_invoice_id',
+    'external_document_number',
+    'external_warehouse_id',
+    'external_cashier_id',
+    'external_snapshot',
     'customer_name',
     'customer_phone',
+    'customer_phone_2',
     'delivery_address',
     'delivery_reference',
     'priority',
@@ -51,6 +59,7 @@ class Ticket extends Model
         return [
             'priority' => TicketPriority::class,
             'status' => TicketStatus::class,
+            'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
             'dispatched_at' => 'datetime',
             'delivered_at' => 'datetime',
@@ -127,6 +136,21 @@ class Ticket extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(TicketDocument::class);
+    }
+
+    public function deliveryEvidences(): HasMany
+    {
+        return $this->hasMany(DeliveryEvidence::class);
+    }
+
+    public function novelties(): HasMany
+    {
+        return $this->hasMany(TicketNovelty::class);
+    }
+
+    public function locationPoints(): HasMany
+    {
+        return $this->hasMany(LocationPoint::class);
     }
 
     /**

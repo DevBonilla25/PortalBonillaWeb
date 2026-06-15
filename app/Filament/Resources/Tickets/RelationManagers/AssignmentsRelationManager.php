@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 
 class AssignmentsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'assignments';
 
     protected static ?string $title = 'Asignaciones';
@@ -25,7 +27,7 @@ class AssignmentsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('assigned_at')
                     ->label('Asignado')
-                    ->dateTime()
+                    ->dateTime(timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
                 TextColumn::make('driver.user.name')
                     ->label('Chofer')

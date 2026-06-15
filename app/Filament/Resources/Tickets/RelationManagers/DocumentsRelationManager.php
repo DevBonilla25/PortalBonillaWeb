@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 
 class DocumentsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'documents';
 
     protected static ?string $title = 'Documentos';
@@ -55,7 +57,7 @@ class DocumentsRelationManager extends RelationManager
                     ->searchable(),
                 TextColumn::make('created_at')
                     ->label('Fecha')
-                    ->dateTime()
+                    ->dateTime(timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')

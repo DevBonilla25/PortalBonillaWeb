@@ -34,6 +34,11 @@ class WarehousesTable
                 TextColumn::make('branch.name')
                     ->label('Sucursal')
                     ->placeholder('—'),
+                TextColumn::make('morfeusMappings.external_warehouse_id')
+                    ->label('Morfeus')
+                    ->badge()
+                    ->placeholder('â€”')
+                    ->toggleable(),
                 IconColumn::make('is_general')
                     ->label('General')
                     ->boolean(),

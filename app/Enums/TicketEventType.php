@@ -10,6 +10,9 @@ enum TicketEventType: string
     case StatusChanged = 'status_changed';
     case DocumentUploaded = 'document_uploaded';
     case LoadingChecklistReviewed = 'loading_checklist_reviewed';
+    case DeliveryEvidenceRegistered = 'delivery_evidence_registered';
+    case NoveltyReported = 'novelty_reported';
+    case LocationRecorded = 'location_recorded';
     case InternalNote = 'internal_note';
 
     public function label(): string
@@ -21,6 +24,9 @@ enum TicketEventType: string
             self::StatusChanged => 'Cambio de estado',
             self::DocumentUploaded => 'Documento cargado',
             self::LoadingChecklistReviewed => 'Checklist de carga revisado',
+            self::DeliveryEvidenceRegistered => 'Evidencia de entrega registrada',
+            self::NoveltyReported => 'Novedad reportada',
+            self::LocationRecorded => 'Ubicacion registrada',
             self::InternalNote => 'Nota interna',
         };
     }
