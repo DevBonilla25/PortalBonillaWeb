@@ -47,7 +47,7 @@ enum TicketStatus: string
             self::SentToWarehouse => [self::Picking, self::Cancelled],
             self::AssignedToWarehouse => [self::Picking, self::Loading, self::Cancelled],
             self::Picking => [self::Loading, self::DeliveryFailed, self::Cancelled],
-            self::Loading => [self::Dispatched, self::DeliveryFailed],
+            self::Loading => [self::Loaded, self::DeliveryFailed],
             self::Loaded => [self::Dispatched, self::Cancelled],
             self::Dispatched => [self::InRoute],
             self::InRoute => [self::Delivered, self::DeliveryFailed],

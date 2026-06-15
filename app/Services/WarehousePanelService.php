@@ -5,12 +5,22 @@ namespace App\Services;
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Models\Warehouse;
+use App\Models\Zone;
 use App\Support\Warehouse\WarehousePanelColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class WarehousePanelService
 {
+    private const DISPATCHED_LIMIT = 50;
+
+    private const ADMIN_ROLES = ['super_admin', 'admin'];
+
+    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator', 'jefe_bodega'];
+
+    private const WAREHOUSE_ASSISTANT_ROLES = ['auxiliar_bodega'];
+
     /**
      * @return list<TicketStatus>
      */
@@ -27,10 +37,10 @@ class WarehousePanelService
             ->all();
     }
 
-    public function baseQuery(?User $user = null): Builder
+    public function baseQuery(?User $user = null, ?int $warehouseId = null): Builder
     {
         $query = Ticket::query()
-            ->with(['zone', 'items', 'currentDriver.user', 'latestAssignment.assistants'])
+            ->with(['warehouse', 'zone', 'items', 'currentDriver.user', 'latestAssignment.assistants'])
             ->withCount('items')
             ->whereIn('status', $this->warehouseStatuses())
             ->orderByDesc('updated_at');
@@ -39,15 +49,102 @@ class WarehousePanelService
             $query->where('company_id', $user->company_id);
         }
 
-        return $query;
+        $warehouseId = $this->effectiveWarehouseId($user, $warehouseId);
+
+        if (! $warehouseId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('warehouse_id', $warehouseId);
+    }
+
+    public function canAccessPanel(?User $user): bool
+    {
+        return $user !== null
+            && $user->can('View:WarehousePanel')
+            && $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_OPERATOR_ROLES, ...self::WAREHOUSE_ASSISTANT_ROLES]);
+    }
+
+    public function requiresWarehouseAssignment(?User $user): bool
+    {
+        return $this->shouldScopeToEmployeeWarehouse($user)
+            && ! $this->employeeWarehouseId($user);
+    }
+
+    public function employeeWarehouseId(?User $user): ?int
+    {
+        return $user?->employee?->warehouse_id;
+    }
+
+    public function effectiveWarehouseId(?User $user, ?int $requestedWarehouseId = null): ?int
+    {
+        if ($this->shouldScopeToEmployeeWarehouse($user)) {
+            return $this->employeeWarehouseId($user);
+        }
+
+        return $requestedWarehouseId;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function warehouseOptions(?User $user): array
+    {
+        return Warehouse::query()
+            ->with('branch')
+            ->when($user?->company_id, fn (Builder $query, int $companyId): Builder => $query->where('company_id', $companyId))
+            ->when($this->shouldScopeToEmployeeWarehouse($user), function (Builder $query) use ($user): Builder {
+                return $query->whereKey($this->employeeWarehouseId($user));
+            })
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (Warehouse $warehouse): array => [
+                $warehouse->id => $warehouse->branch
+                    ? "{$warehouse->name} - {$warehouse->branch->name}"
+                    : $warehouse->name,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return Collection<int, Zone>
+     */
+    public function visibleZones(?User $user, ?int $warehouseId = null): Collection
+    {
+        $warehouseId = $this->effectiveWarehouseId($user, $warehouseId);
+
+        if (! $warehouseId) {
+            return collect();
+        }
+
+        return Ticket::query()
+            ->with('zone')
+            ->whereNotNull('zone_id')
+            ->whereIn('status', $this->warehouseStatuses())
+            ->when($user?->company_id, fn (Builder $query, int $companyId): Builder => $query->where('company_id', $companyId))
+            ->where('warehouse_id', $warehouseId)
+            ->get()
+            ->pluck('zone')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values();
+    }
+
+    private function shouldScopeToEmployeeWarehouse(?User $user): bool
+    {
+        return $user !== null
+            && ! $user->hasAnyRole(self::ADMIN_ROLES)
+            && $user->hasAnyRole([...self::WAREHOUSE_OPERATOR_ROLES, ...self::WAREHOUSE_ASSISTANT_ROLES]);
     }
 
     /**
      * @return Collection<string, Collection<int, Ticket>>
      */
-    public function ticketsByColumn(?User $user = null, ?string $search = null): Collection
+    public function ticketsByColumn(?User $user = null, ?string $search = null, ?int $warehouseId = null): Collection
     {
-        $query = $this->baseQuery($user);
+        $query = $this->baseQuery($user, $warehouseId);
 
         if (filled($search)) {
             $term = '%'.trim($search).'%';
@@ -61,14 +158,32 @@ class WarehousePanelService
             });
         }
 
-        $tickets = $query->get();
-
         return collect(WarehousePanelColumn::all())
-            ->mapWithKeys(fn (WarehousePanelColumn $column): array => [
-                $column->key => $tickets->filter(
-                    fn (Ticket $ticket): bool => $this->ticketBelongsToColumn($ticket, $column),
-                )->values(),
-            ]);
+            ->mapWithKeys(function (WarehousePanelColumn $column) use ($query): array {
+                $columnQuery = $query->clone()->reorder();
+
+                $columnQuery->where(function (Builder $query) use ($column): void {
+                    $query->whereIn('status', collect($column->statuses)->map->value->all());
+
+                    if ($column->key === 'preparation') {
+                        $query->orWhere('status', TicketStatus::AssignedToWarehouse->value);
+                    }
+
+                    if ($column->key === 'loading') {
+                        $query->orWhere('status', TicketStatus::Loaded->value);
+                    }
+                });
+
+                $column->key === 'received'
+                    ? $columnQuery->orderBy('updated_at')
+                    : $columnQuery->orderByDesc('updated_at');
+
+                if ($column->key === 'dispatched') {
+                    $columnQuery->limit(self::DISPATCHED_LIMIT);
+                }
+
+                return [$column->key => $columnQuery->get()];
+            });
     }
 
     public function ticketBelongsToColumn(Ticket $ticket, WarehousePanelColumn $column): bool
@@ -86,11 +201,6 @@ class WarehousePanelService
 
     public function nextAdvanceStatus(Ticket $ticket): ?TicketStatus
     {
-        if (in_array($ticket->status, [TicketStatus::Loading, TicketStatus::Loaded], true)
-            && ! $ticket->items()->exists()) {
-            return TicketStatus::Dispatched;
-        }
-
         return match ($ticket->status) {
             TicketStatus::Picking => TicketStatus::Loading,
             TicketStatus::AssignedToWarehouse => TicketStatus::Loading,
@@ -107,6 +217,12 @@ class WarehousePanelService
         ], true);
     }
 
+    public function canUserAssignResources(User $user, Ticket $ticket): bool
+    {
+        return $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_OPERATOR_ROLES])
+            && $this->canAssign($ticket);
+    }
+
     public function canAdvance(Ticket $ticket): bool
     {
         return $this->nextAdvanceStatus($ticket) !== null
@@ -119,10 +235,32 @@ class WarehousePanelService
             return false;
         }
 
-        return in_array($ticket->status, [
-            TicketStatus::Loading,
-            TicketStatus::Loaded,
-        ], true);
+        return $ticket->status === TicketStatus::Loaded;
+    }
+
+    public function canMarkLoaded(Ticket $ticket): bool
+    {
+        return $ticket->status === TicketStatus::Loading
+            && $ticket->status->canTransitionTo(TicketStatus::Loaded);
+    }
+
+    public function canUserMarkLoaded(User $user, Ticket $ticket): bool
+    {
+        if (! $this->canMarkLoaded($ticket)) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(self::ADMIN_ROLES)) {
+            return true;
+        }
+
+        return $this->canBeLoadedBy($user, $ticket);
+    }
+
+    public function canUserReviewLoadingChecklist(User $user, Ticket $ticket): bool
+    {
+        return $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_OPERATOR_ROLES])
+            && $this->canReviewLoadingChecklist($ticket);
     }
 
     public function canBeLoadedBy(User $user, Ticket $ticket): bool
@@ -164,7 +302,7 @@ class WarehousePanelService
             return false;
         }
 
-        if ($user->hasAnyRole(['super_admin', 'admin', 'warehouse_operator'])) {
+        if ($user->hasAnyRole(self::ADMIN_ROLES)) {
             return true;
         }
 

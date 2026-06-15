@@ -24,6 +24,8 @@ class MorfeusCashierTickets extends Page
     use HasLogisticsNavigation;
     use WithPagination;
 
+    private const CASHIER_ROLES = ['cashier', 'vendedor'];
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
     protected static ?string $navigationLabel = 'Mis tickets Morfeus';
@@ -76,7 +78,11 @@ class MorfeusCashierTickets extends Page
 
     public static function canAccess(): bool
     {
-        return Auth::user()?->can('ViewAny:Ticket') ?? false;
+        $user = Auth::user();
+
+        return $user !== null
+            && $user->can('View:MorfeusCashierTickets')
+            && $user->hasAnyRole(['super_admin', 'admin', ...self::CASHIER_ROLES]);
     }
 
     /**
