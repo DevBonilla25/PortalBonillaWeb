@@ -15,6 +15,10 @@ class ZoneInfolist
                 TextEntry::make('company.name')->label('Empresa'),
                 TextEntry::make('code')->label('Codigo'),
                 TextEntry::make('name')->label('Nombre'),
+                TextEntry::make('color')
+                    ->label('Color')
+                    ->badge()
+                    ->placeholder('-'),
                 TextEntry::make('description')
                     ->label('Descripcion')
                     ->placeholder('-')

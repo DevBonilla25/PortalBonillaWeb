@@ -25,6 +25,11 @@ class ZonesTable
                     ->label('Nombre')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('color')
+                    ->label('Color')
+                    ->formatStateUsing(fn (?string $state): string => $state ?? '-')
+                    ->badge()
+                    ->color('gray'),
                 IconColumn::make('is_active')
                     ->label('Activa')
                     ->boolean(),
