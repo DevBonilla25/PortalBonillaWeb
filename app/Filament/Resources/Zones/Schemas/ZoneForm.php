@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Zones\Schemas;
 
 use App\Models\Company;
+use App\Models\Zone;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -41,6 +43,11 @@ class ZoneForm
                             ->label('Nombre')
                             ->required()
                             ->maxLength(255),
+                        ColorPicker::make('color')
+                            ->label('Color')
+                            ->default(fn (Get $get): string => Zone::colorFor($get('code') ?: $get('name')))
+                            ->hex()
+                            ->required(),
                         Toggle::make('is_active')
                             ->label('Activa')
                             ->default(true),
