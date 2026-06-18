@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,7 +28,7 @@ use Spatie\Permission\Traits\HasRoles;
     'is_active',
 ])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
@@ -79,5 +81,23 @@ class User extends Authenticatable
     public function uploadedTicketDocuments(): HasMany
     {
         return $this->hasMany(TicketDocument::class, 'uploaded_by');
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_active
+            && $panel->getId() === 'admin'
+            && $this->hasAnyRole([
+                'super_admin',
+                'admin',
+                'cashier',
+                'vendedor',
+                'warehouse_operator',
+                'warehouse_assistant',
+                'jefe_bodega',
+                'auxiliar_bodega',
+                'driver',
+                'chofer',
+            ]);
     }
 }
