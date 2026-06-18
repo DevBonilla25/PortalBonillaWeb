@@ -18,6 +18,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 class TicketsTable
 {
@@ -25,9 +26,9 @@ class TicketsTable
 
     private const ADMIN_ROLES = ['super_admin', 'admin'];
 
-    private const CASHIER_ROLES = ['cashier', 'vendedor'];
+    private const CASHIER_ROLES = ['cashier'];
 
-    private const WAREHOUSE_ROLES = ['warehouse_operator', 'jefe_bodega', 'auxiliar_bodega'];
+    private const WAREHOUSE_ROLES = ['warehouse_operator', 'warehouse_assistant'];
 
     public static function configure(Table $table): Table
     {
@@ -164,13 +165,13 @@ class TicketsTable
                 'xl' => 5,
             ])
             ->deferFilters(false)
-            ->description(function () use ($table): string {
+            ->description(function () use ($table): HtmlString {
                 $livewire = $table->getLivewire();
                 $total = method_exists($livewire, 'getFilteredTableQuery')
                     ? ($livewire->getFilteredTableQuery()?->count() ?? 0)
                     : 0;
 
-                return $total === 1 ? "{$total} ticket" : "{$total} tickets";
+                return static::tableDescription($total);
             })
             ->recordActions([
                 ViewAction::make()
@@ -272,5 +273,42 @@ class TicketsTable
             TicketStatus::DeliveryFailed,
             TicketStatus::Cancelled => 'danger',
         };
+    }
+
+    private static function tableDescription(int $total): HtmlString
+    {
+        $ticketCount = $total === 1 ? "{$total} ticket" : "{$total} tickets";
+
+        $badges = collect([
+            ['label' => 'Pendientes', 'color' => 'warning'],
+            ['label' => 'En ruta', 'color' => 'info'],
+            ['label' => 'Entregados', 'color' => 'success'],
+            ['label' => 'Cancelado / Novedad', 'color' => 'danger'],
+        ])
+            ->map(fn (array $badge): string => static::legendBadge($badge['label'], $badge['color']))
+            ->implode(' ');
+
+        return new HtmlString(<<<HTML
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
+                <span>{$ticketCount}</span>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; font-weight: 500; color: rgb(107 114 128);">Colores:</span>
+                    {$badges}
+                </div>
+            </div>
+        HTML);
+    }
+
+    private static function legendBadge(string $label, string $color): string
+    {
+        [$background, $text, $border] = match ($color) {
+            'warning' => ['#fffbeb', '#b45309', '#fcd34d'],
+            'info' => ['#eff6ff', '#1d4ed8', '#93c5fd'],
+            'success' => ['#f0fdf4', '#15803d', '#86efac'],
+            'danger' => ['#fef2f2', '#b91c1c', '#fca5a5'],
+            default => ['#f9fafb', '#374151', '#d1d5db'],
+        };
+
+        return '<span style="display: inline-flex; align-items: center; border-radius: 0.375rem; border: 1px solid '.$border.'; background: '.$background.'; color: '.$text.'; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.25rem;">'.e($label).'</span>';
     }
 }

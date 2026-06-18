@@ -226,7 +226,7 @@ class WarehousePanel extends Page implements HasActions
                     ->label('Auxiliares')
                     ->options(fn () => User::query()
                         ->where('is_active', true)
-                        ->role('auxiliar_bodega')
+                        ->role('warehouse_assistant')
                         ->orderBy('name')
                         ->pluck('name', 'id'))
                     ->multiple()
