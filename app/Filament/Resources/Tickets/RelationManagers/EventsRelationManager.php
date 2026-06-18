@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Tickets\RelationManagers;
 
+use App\Enums\TicketEventType;
+use App\Enums\TicketStatus;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -31,13 +33,16 @@ class EventsRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('event_type')
                     ->label('Evento')
+                    ->formatStateUsing(fn (TicketEventType $state): string => $state->label())
                     ->badge(),
                 TextColumn::make('previous_status')
                     ->label('Estado anterior')
+                    ->formatStateUsing(fn (?TicketStatus $state): ?string => $state?->label())
                     ->badge()
                     ->placeholder('-'),
                 TextColumn::make('new_status')
                     ->label('Estado nuevo')
+                    ->formatStateUsing(fn (?TicketStatus $state): ?string => $state?->label())
                     ->badge()
                     ->placeholder('-'),
                 TextColumn::make('user.name')

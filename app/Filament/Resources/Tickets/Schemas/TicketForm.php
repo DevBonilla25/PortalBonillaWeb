@@ -86,11 +86,11 @@ class TicketForm
                             )
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->required(),
                         Select::make('priority')
                             ->label('Prioridad')
                             ->options(TicketPriority::class)
-                            ->required()
+                            ->nullable()
                             ->default(TicketPriority::Normal->value),
                         Select::make('status')
                             ->label('Estado')

@@ -8,8 +8,13 @@ use App\Enums\TicketEventType;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Services\Morfeus\MorfeusTicketService;
 use App\Services\TicketEventService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Form;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Url;
@@ -34,6 +39,58 @@ class CreateTicket extends CreateRecord
         return $this->morfeusReference()['source_type'] === 'pending_invoice'
             ? false
             : parent::canCreateAnother();
+    }
+
+    public function getTitle(): string|Htmlable
+    {
+        return 'Crear ticket';
+    }
+
+    protected function getCreateFormAction(): Action
+    {
+        return Action::make('create')
+            ->label('Crear ticket')
+            ->submit($this->getSubmitFormLivewireMethodName());
+    }
+
+    protected function getCreateAnotherFormAction(): Action
+    {
+        return Action::make('createAnother')
+            ->label('Crear y crear otro')
+            ->action('createAnother')
+            ->color('gray');
+    }
+
+    protected function getCancelFormAction(): Action
+    {
+        return parent::getCancelFormAction()
+            ->label('Cancelar');
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Ticket creado correctamente';
+    }
+
+    public function getFormContentComponent(): Component
+    {
+        return Form::make([EmbeddedSchema::make('form')])
+            ->id('form')
+            ->livewireSubmitHandler($this->getSubmitFormLivewireMethodName())
+            ->extraAttributes([
+                'x-on:keydown.enter' => <<<'JS'
+                    if ($event.target.closest('textarea, [contenteditable="true"], [role="combobox"]')) {
+                        return;
+                    }
+
+                    if ($event.target.matches('input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])')) {
+                        $event.preventDefault();
+                    }
+                JS,
+            ])
+            ->footer([
+                $this->getFormActionsContentComponent(),
+            ]);
     }
 
     public function mount(): void

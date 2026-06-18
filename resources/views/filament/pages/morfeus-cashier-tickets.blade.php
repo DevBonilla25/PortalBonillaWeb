@@ -374,7 +374,7 @@
                                                 :color="($ticket['local_ticket']['exists'] ?? false) ? 'gray' : 'primary'"
                                                 wire:click="createTicketFromMorfeus({{ (int) $ticket['detail_id'] }}, {{ (int) ($ticket['warehouse']['external_id'] ?? 0) }})"
                                             >
-                                                Crear ticket
+                                                Ver Ticket
                                             </x-filament::button>
                                         @else
                                             <x-filament::button
