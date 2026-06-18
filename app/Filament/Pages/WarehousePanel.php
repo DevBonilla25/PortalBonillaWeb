@@ -22,10 +22,13 @@ use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -152,12 +155,14 @@ class WarehousePanel extends Page implements HasActions
                     ? 'Actualizar asignación'
                     : 'Asignar recursos';
             })
+            ->modalSubmitActionLabel('Asignar recursos')
+            ->modalCancelActionLabel('Cancelar')
             ->fillForm(function (array $arguments): array {
                 $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;
 
                 $ticket = Ticket::query()->findOrFail($ticketId);
 
-                return TicketAssignmentForm::defaultState($ticket);
+                return $this->assignmentDefaultState($ticket);
             })
             ->form([
                 Select::make('driver_id')
@@ -171,6 +176,20 @@ class WarehousePanel extends Page implements HasActions
                         ]))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $vehicleId = DriverProfile::query()
+                            ->whereKey($state)
+                            ->value('default_vehicle_id');
+
+                        if ($vehicleId) {
+                            $set('vehicle_id', $vehicleId);
+                        }
+                    })
                     ->required(),
                 Select::make('vehicle_id')
                     ->label('Vehículo')
@@ -180,20 +199,34 @@ class WarehousePanel extends Page implements HasActions
                         ->pluck('plate', 'id'))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $driverId = DriverProfile::query()
+                            ->where('is_active', true)
+                            ->where('default_vehicle_id', $state)
+                            ->orderBy('id')
+                            ->value('id');
+
+                        if ($driverId) {
+                            $set('driver_id', $driverId);
+                        }
+                    })
                     ->required(),
-                Select::make('warehouse_user_id')
+                Hidden::make('warehouse_user_id')
+                    ->default(fn (): ?int => Auth::id())
+                    ->dehydrated(),
+                Placeholder::make('warehouse_user_name')
                     ->label('Bodeguero responsable')
-                    ->options(fn () => User::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->nullable(),
+                    ->content(fn (): string => Auth::user()?->name ?? 'Usuario actual'),
                 Select::make('assistant_ids')
                     ->label('Auxiliares')
                     ->options(fn () => User::query()
                         ->where('is_active', true)
+                        ->role('auxiliar_bodega')
                         ->orderBy('name')
                         ->pluck('name', 'id'))
                     ->multiple()
@@ -434,6 +467,38 @@ class WarehousePanel extends Page implements HasActions
         return ($this->markLoadedAction())(['ticket' => $ticketId])
             ->livewire($this)
             ->toHtml();
+    }
+
+    /**
+     * @return array{
+     *     driver_id: int|null,
+     *     vehicle_id: int|null,
+     *     warehouse_user_id: int|null,
+     *     assistant_ids: list<int>,
+     *     internal_observation: string|null,
+     * }
+     */
+    private function assignmentDefaultState(Ticket $ticket): array
+    {
+        $state = TicketAssignmentForm::defaultState($ticket);
+
+        if (blank($state['vehicle_id']) && filled($state['driver_id'])) {
+            $state['vehicle_id'] = DriverProfile::query()
+                ->whereKey($state['driver_id'])
+                ->value('default_vehicle_id');
+        }
+
+        if (blank($state['driver_id']) && filled($state['vehicle_id'])) {
+            $state['driver_id'] = DriverProfile::query()
+                ->where('is_active', true)
+                ->where('default_vehicle_id', $state['vehicle_id'])
+                ->orderBy('id')
+                ->value('id');
+        }
+
+        $state['warehouse_user_id'] = Auth::id();
+
+        return $state;
     }
 
     public function canAssignTicket(Ticket $ticket): bool

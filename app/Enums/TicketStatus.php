@@ -53,7 +53,8 @@ enum TicketStatus: string
             self::InRoute => [self::Delivered, self::DeliveryFailed],
             self::Delivered, self::DeliveryFailed => [self::Returning],
             self::Returning => [self::ArrivedBack],
-            self::ArrivedBack, self::Cancelled => [],
+            self::ArrivedBack => [],
+            self::Cancelled => [self::SentToWarehouse],
         };
     }
 
