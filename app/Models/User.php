@@ -91,13 +91,9 @@ class User extends Authenticatable implements FilamentUser
                 'super_admin',
                 'admin',
                 'cashier',
-                'vendedor',
                 'warehouse_operator',
                 'warehouse_assistant',
-                'jefe_bodega',
-                'auxiliar_bodega',
                 'driver',
-                'chofer',
             ]);
     }
 }

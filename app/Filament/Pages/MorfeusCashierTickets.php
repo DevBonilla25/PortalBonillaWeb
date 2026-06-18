@@ -24,7 +24,7 @@ class MorfeusCashierTickets extends Page
     use HasLogisticsNavigation;
     use WithPagination;
 
-    private const CASHIER_ROLES = ['cashier', 'vendedor'];
+    private const CASHIER_ROLES = ['cashier'];
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 

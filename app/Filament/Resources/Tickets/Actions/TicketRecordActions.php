@@ -26,11 +26,11 @@ class TicketRecordActions
 {
     private const ADMIN_ROLES = ['super_admin', 'admin'];
 
-    private const CASHIER_ROLES = ['cashier', 'vendedor'];
+    private const CASHIER_ROLES = ['cashier'];
 
-    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator', 'jefe_bodega'];
+    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator'];
 
-    private const WAREHOUSE_ASSISTANT_ROLES = ['auxiliar_bodega'];
+    private const WAREHOUSE_ASSISTANT_ROLES = ['warehouse_assistant'];
 
     public static function sendToWarehouse(): Action
     {
@@ -158,7 +158,9 @@ class TicketRecordActions
                     ->label('Auxiliares')
                     ->options(fn () => User::query()
                         ->where('is_active', true)
-                        ->role('auxiliar_bodega')
+                        ->whereHas('roles', fn ($query) => $query
+                            ->whereIn('name', self::WAREHOUSE_ASSISTANT_ROLES)
+                            ->where('guard_name', 'web'))
                         ->orderBy('name')
                         ->pluck('name', 'id'))
                     ->multiple()

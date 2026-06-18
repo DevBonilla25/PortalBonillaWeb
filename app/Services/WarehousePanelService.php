@@ -17,9 +17,9 @@ class WarehousePanelService
 
     private const ADMIN_ROLES = ['super_admin', 'admin'];
 
-    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator', 'jefe_bodega'];
+    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator'];
 
-    private const WAREHOUSE_ASSISTANT_ROLES = ['auxiliar_bodega'];
+    private const WAREHOUSE_ASSISTANT_ROLES = ['warehouse_assistant'];
 
     /**
      * @return list<TicketStatus>
