@@ -114,6 +114,79 @@ php artisan serve
 
 Acceso al panel: **http://localhost:8000/admin**
 
+## Despliegue en Windows Server / IIS
+
+Para pruebas de campo en Windows Server se recomienda publicar Laravel mediante IIS, no con `php artisan serve`.
+
+El sitio de IIS debe apuntar a:
+
+```text
+C:\sites\bonilla-portal-web\public
+```
+
+No debe apuntar a la raíz del proyecto:
+
+```text
+C:\sites\bonilla-portal-web
+```
+
+Flujo recomendado después de actualizar desde Git:
+
+```powershell
+cd C:\sites\bonilla-portal-web
+git fetch origin
+git checkout dev
+git pull origin dev
+composer install --no-dev --optimize-autoloader
+npm install
+npm run build
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+iisreset
+```
+
+Si el puerto ya está asignado a IIS, por ejemplo `5000`, no se debe levantar Laravel con:
+
+```powershell
+php artisan serve --host=0.0.0.0 --port=5000
+```
+
+Ese puerto queda administrado por IIS/HTTP.sys. El acceso interno sería, por ejemplo:
+
+```text
+http://10.10.10.8:5000/admin
+```
+
+### Error 403 después del login
+
+En producción, Filament exige que el modelo `User` implemente `FilamentUser` y defina `canAccessPanel()`. Si falta esa configuración, el login puede aceptar las credenciales pero el panel responde `403 Forbidden`.
+
+El acceso al panel queda limitado a usuarios activos con roles autorizados, como:
+
+- `super_admin`
+- `admin`
+- `cashier` / `vendedor`
+- `warehouse_operator` / `jefe_bodega`
+- `warehouse_assistant` / `auxiliar_bodega`
+- `driver` / `chofer`
+
+Para ambiente de pruebas reales usar:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://10.10.10.8:5000
+```
+
+Cuando se publique por Cloudflare Tunnel o dominio HTTPS, actualizar `APP_URL`:
+
+```env
+APP_URL=https://logistica.tudominio.com
+```
+
 ## Comandos útiles
 
 ```bash
