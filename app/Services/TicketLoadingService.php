@@ -22,8 +22,8 @@ class TicketLoadingService
      */
     public function reviewChecklist(Ticket $ticket, array $items, User $reviewedBy): Ticket
     {
-        if (! in_array($ticket->status, [TicketStatus::Loading, TicketStatus::Loaded], true)) {
-            throw new DomainException('El checklist solo aplica a tickets en carga.');
+        if ($ticket->status !== TicketStatus::Loaded) {
+            throw new DomainException('El checklist solo aplica a tickets marcados como cargados.');
         }
 
         if (! $ticket->items()->exists()) {

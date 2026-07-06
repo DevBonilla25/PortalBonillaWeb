@@ -48,4 +48,14 @@ class Warehouse extends Model
     {
         return $this->hasMany(Ticket::class);
     }
+
+    public function externalMappings(): HasMany
+    {
+        return $this->hasMany(WarehouseExternalMapping::class);
+    }
+
+    public function morfeusMappings(): HasMany
+    {
+        return $this->externalMappings()->where('external_system', 'morfeus');
+    }
 }

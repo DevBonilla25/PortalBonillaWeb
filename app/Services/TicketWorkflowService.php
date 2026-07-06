@@ -31,9 +31,14 @@ class TicketWorkflowService
     {
         $this->assertCanTransition($ticket, $nextStatus);
 
+        $currentStatus = $ticket->status instanceof TicketStatus
+            ? $ticket->status
+            : TicketStatus::from($ticket->status);
+
         $ticket->forceFill([
             'status' => $nextStatus,
             ...$this->timestampsFor($nextStatus),
+            ...$this->reactivationTimestampsFor($currentStatus, $nextStatus),
         ])->save();
 
         return $ticket->refresh();
@@ -52,5 +57,19 @@ class TicketWorkflowService
             TicketStatus::ArrivedBack, TicketStatus::Cancelled => ['closed_at' => now()],
             default => [],
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reactivationTimestampsFor(TicketStatus $currentStatus, TicketStatus $nextStatus): array
+    {
+        if ($currentStatus !== TicketStatus::Cancelled || $nextStatus !== TicketStatus::SentToWarehouse) {
+            return [];
+        }
+
+        return [
+            'closed_at' => null,
+        ];
     }
 }

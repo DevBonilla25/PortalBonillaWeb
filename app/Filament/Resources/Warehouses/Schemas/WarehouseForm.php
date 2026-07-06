@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Warehouses\Schemas;
 
 use App\Enums\WarehouseType;
 use App\Models\Company;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -36,8 +37,8 @@ class WarehouseForm
                             ->options(WarehouseType::class)
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function (?string $state, Set $set): void {
-                                if ($state === WarehouseType::General->value) {
+                            ->afterStateUpdated(function (WarehouseType|string|null $state, Set $set): void {
+                                if (($state instanceof WarehouseType ? $state : WarehouseType::tryFrom((string) $state)) === WarehouseType::General) {
                                     $set('is_general', true);
                                     $set('branch_id', null);
                                 }
@@ -68,15 +69,15 @@ class WarehouseForm
                             ->searchable()
                             ->preload()
                             ->nullable()
-                            ->hidden(fn (Get $get): bool => $get('is_general') || $get('type') === WarehouseType::General->value)
-                            ->dehydrated(fn (Get $get): bool => ! $get('is_general') && $get('type') !== WarehouseType::General->value),
+                            ->hidden(fn (Get $get): bool => $get('is_general') || self::warehouseTypeFromState($get('type')) === WarehouseType::General)
+                            ->dehydrated(fn (Get $get): bool => ! $get('is_general') && self::warehouseTypeFromState($get('type')) !== WarehouseType::General),
                         Toggle::make('is_general')
                             ->label('Bodega general')
                             ->default(false)
                             ->live()
                             ->afterStateUpdated(function (bool $state, Set $set): void {
                                 if ($state) {
-                                    $set('type', WarehouseType::General->value);
+                                    $set('type', WarehouseType::General);
                                     $set('branch_id', null);
                                 }
                             }),
@@ -87,6 +88,48 @@ class WarehouseForm
                             ->label('Dirección')
                             ->columnSpanFull(),
                     ]),
+                Section::make('Mapeo Morfeus')
+                    ->schema([
+                        Repeater::make('morfeusMappings')
+                            ->label('Bodegas Morfeus relacionadas')
+                            ->relationship()
+                            ->schema([
+                                TextInput::make('external_warehouse_id')
+                                    ->label('ID bodega Morfeus')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->required(),
+                                TextInput::make('external_name')
+                                    ->label('Nombre Morfeus')
+                                    ->maxLength(255)
+                                    ->nullable(),
+                                Select::make('external_type')
+                                    ->label('Tipo')
+                                    ->options([
+                                        'physical' => 'Fisica',
+                                        'pending_delivery' => 'Pendiente entrega',
+                                    ])
+                                    ->default('physical')
+                                    ->required(),
+                                Toggle::make('is_active')
+                                    ->label('Activo')
+                                    ->default(true),
+                                TextInput::make('external_system')
+                                    ->default('morfeus')
+                                    ->hidden()
+                                    ->dehydrated(),
+                            ])
+                            ->columns(4)
+                            ->defaultItems(0)
+                            ->addActionLabel('Agregar bodega Morfeus'),
+                    ]),
             ]);
+    }
+
+    private static function warehouseTypeFromState(mixed $state): ?WarehouseType
+    {
+        return $state instanceof WarehouseType
+            ? $state
+            : WarehouseType::tryFrom((string) $state);
     }
 }

@@ -10,6 +10,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 class ZonesTable
 {
@@ -25,6 +26,19 @@ class ZonesTable
                     ->label('Nombre')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('color')
+                    ->label('Color')
+                    ->formatStateUsing(fn (?string $state): HtmlString|string => blank($state)
+                        ? '-'
+                        : new HtmlString(
+                            '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">'
+                                .'<span style="width: 1rem; height: 1rem; border-radius: 9999px; background: '.e($state).'; border: 1px solid rgb(0 0 0 / 0.12); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35);"></span>'
+                                .'<span>'.e($state).'</span>'
+                            .'</span>'
+                        ))
+                    ->badge()
+                    ->color('gray')
+                    ->html(),
                 IconColumn::make('is_active')
                     ->label('Activa')
                     ->boolean(),

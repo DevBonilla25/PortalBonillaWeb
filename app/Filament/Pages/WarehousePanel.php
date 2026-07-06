@@ -5,7 +5,7 @@ namespace App\Filament\Pages;
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
-use App\Enums\TicketPriority;
+use App\Enums\TicketStatus;
 use App\Filament\Concerns\HasLogisticsNavigation;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\DriverProfile;
@@ -22,10 +22,13 @@ use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -56,6 +59,9 @@ class WarehousePanel extends Page implements HasActions
     #[Url(as: 'q')]
     public string $search = '';
 
+    #[Url(as: 'bodega')]
+    public ?int $warehouseId = null;
+
     public function getHeading(): string|Htmlable
     {
         return 'Panel de bodega';
@@ -68,9 +74,20 @@ class WarehousePanel extends Page implements HasActions
 
     public static function canAccess(): bool
     {
+        return app(WarehousePanelService::class)->canAccessPanel(Auth::user());
+    }
+
+    public function mount(): void
+    {
+        $service = app(WarehousePanelService::class);
         $user = Auth::user();
 
-        return $user !== null && $user->can('ViewAny:Ticket');
+        if ($service->requiresWarehouseAssignment($user)) {
+            return;
+        }
+
+        $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
+            ?? array_key_first($service->warehouseOptions($user));
     }
 
     /**
@@ -89,7 +106,32 @@ class WarehousePanel extends Page implements HasActions
         return app(WarehousePanelService::class)->ticketsByColumn(
             user: Auth::user(),
             search: $this->search,
+            warehouseId: $this->warehouseId,
         );
+    }
+
+    public function requiresWarehouseAssignment(): bool
+    {
+        return app(WarehousePanelService::class)->requiresWarehouseAssignment(Auth::user());
+    }
+
+    public function isWarehouseSelectorLocked(): bool
+    {
+        return app(WarehousePanelService::class)->effectiveWarehouseId(Auth::user(), null) !== null
+            && ! Auth::user()?->hasAnyRole(['super_admin', 'admin']);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getWarehouseOptionsProperty(): array
+    {
+        return app(WarehousePanelService::class)->warehouseOptions(Auth::user());
+    }
+
+    public function getVisibleZonesProperty(): Collection
+    {
+        return app(WarehousePanelService::class)->visibleZones(Auth::user(), $this->warehouseId);
     }
 
     public function assignTicketAction(): Action
@@ -113,12 +155,14 @@ class WarehousePanel extends Page implements HasActions
                     ? 'Actualizar asignación'
                     : 'Asignar recursos';
             })
+            ->modalSubmitActionLabel('Asignar recursos')
+            ->modalCancelActionLabel('Cancelar')
             ->fillForm(function (array $arguments): array {
                 $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;
 
                 $ticket = Ticket::query()->findOrFail($ticketId);
 
-                return TicketAssignmentForm::defaultState($ticket);
+                return $this->assignmentDefaultState($ticket);
             })
             ->form([
                 Select::make('driver_id')
@@ -132,6 +176,20 @@ class WarehousePanel extends Page implements HasActions
                         ]))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $vehicleId = DriverProfile::query()
+                            ->whereKey($state)
+                            ->value('default_vehicle_id');
+
+                        if ($vehicleId) {
+                            $set('vehicle_id', $vehicleId);
+                        }
+                    })
                     ->required(),
                 Select::make('vehicle_id')
                     ->label('Vehículo')
@@ -141,20 +199,34 @@ class WarehousePanel extends Page implements HasActions
                         ->pluck('plate', 'id'))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $driverId = DriverProfile::query()
+                            ->where('is_active', true)
+                            ->where('default_vehicle_id', $state)
+                            ->orderBy('id')
+                            ->value('id');
+
+                        if ($driverId) {
+                            $set('driver_id', $driverId);
+                        }
+                    })
                     ->required(),
-                Select::make('warehouse_user_id')
+                Hidden::make('warehouse_user_id')
+                    ->default(fn (): ?int => Auth::id())
+                    ->dehydrated(),
+                Placeholder::make('warehouse_user_name')
                     ->label('Bodeguero responsable')
-                    ->options(fn () => User::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->nullable(),
+                    ->content(fn (): string => Auth::user()?->name ?? 'Usuario actual'),
                 Select::make('assistant_ids')
                     ->label('Auxiliares')
                     ->options(fn () => User::query()
                         ->where('is_active', true)
+                        ->role('warehouse_assistant')
                         ->orderBy('name')
                         ->pluck('name', 'id'))
                     ->multiple()
@@ -223,7 +295,7 @@ class WarehousePanel extends Page implements HasActions
                 if (! $nextStatus) {
                     Notification::make()
                         ->title('No hay un siguiente estado disponible')
-                        ->body('En cargando usa "Cerrar carga" para revisar el checklist y despachar.')
+                        ->body('En cargando usa "Marcar cargado" para dejar la carga lista para validacion.')
                         ->warning()
                         ->send();
 
@@ -256,12 +328,12 @@ class WarehousePanel extends Page implements HasActions
     public function reviewLoadingChecklistAction(): Action
     {
         return Action::make('reviewLoadingChecklist')
-            ->label('Cerrar carga')
+            ->label('Validar carga')
             ->icon(Heroicon::OutlinedClipboardDocumentCheck)
             ->color('warning')
             ->size('sm')
-            ->modalHeading('Cerrar carga — checklist')
-            ->modalSubmitActionLabel('Guardar y despachar')
+            ->modalHeading('Validar carga - checklist')
+            ->modalSubmitActionLabel('Validar y despachar')
             ->fillForm(function (array $arguments): array {
                 $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;
                 $ticket = Ticket::query()->with('items')->findOrFail($ticketId);
@@ -322,21 +394,51 @@ class WarehousePanel extends Page implements HasActions
             });
     }
 
-    public function priorityColor(TicketPriority $priority): string
+    public function markLoadedAction(): Action
     {
-        return match ($priority) {
-            TicketPriority::High, TicketPriority::Urgent => 'danger',
-            TicketPriority::Normal => 'warning',
-            TicketPriority::Low => 'gray',
-        };
-    }
+        return Action::make('markLoaded')
+            ->label('Marcar cargado')
+            ->icon(Heroicon::OutlinedCheckCircle)
+            ->color('success')
+            ->size('sm')
+            ->requiresConfirmation()
+            ->modalHeading('Marcar carga como lista')
+            ->modalDescription('El jefe de bodega podra validar los productos cargados antes de despachar.')
+            ->action(function (array $arguments): void {
+                $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;
+                $ticket = Ticket::query()->with(['latestAssignment.assistants'])->findOrFail($ticketId);
+                $user = Auth::user();
 
-    public function priorityLabel(TicketPriority $priority): string
-    {
-        return match ($priority) {
-            TicketPriority::Normal => 'Media',
-            default => $priority->label(),
-        };
+                if (! $user || ! app(WarehousePanelService::class)->canUserMarkLoaded($user, $ticket)) {
+                    Notification::make()
+                        ->title('No puedes marcar este ticket como cargado')
+                        ->body('Solo el auxiliar asignado o bodega pueden completar este tramo.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                try {
+                    app(ChangeTicketStatusAction::class)->execute(
+                        ticket: $ticket,
+                        nextStatus: TicketStatus::Loaded,
+                        user: $user,
+                        description: 'Carga marcada como lista por bodega.',
+                    );
+
+                    Notification::make()
+                        ->title('Ticket marcado como cargado')
+                        ->success()
+                        ->send();
+                } catch (DomainException $exception) {
+                    Notification::make()
+                        ->title('No se pudo marcar como cargado')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
     }
 
     public function assignTicketButtonHtml(int $ticketId): string
@@ -360,10 +462,51 @@ class WarehousePanel extends Page implements HasActions
             ->toHtml();
     }
 
+    public function markLoadedButtonHtml(int $ticketId): string
+    {
+        return ($this->markLoadedAction())(['ticket' => $ticketId])
+            ->livewire($this)
+            ->toHtml();
+    }
+
+    /**
+     * @return array{
+     *     driver_id: int|null,
+     *     vehicle_id: int|null,
+     *     warehouse_user_id: int|null,
+     *     assistant_ids: list<int>,
+     *     internal_observation: string|null,
+     * }
+     */
+    private function assignmentDefaultState(Ticket $ticket): array
+    {
+        $state = TicketAssignmentForm::defaultState($ticket);
+
+        if (blank($state['vehicle_id']) && filled($state['driver_id'])) {
+            $state['vehicle_id'] = DriverProfile::query()
+                ->whereKey($state['driver_id'])
+                ->value('default_vehicle_id');
+        }
+
+        if (blank($state['driver_id']) && filled($state['vehicle_id'])) {
+            $state['driver_id'] = DriverProfile::query()
+                ->where('is_active', true)
+                ->where('default_vehicle_id', $state['vehicle_id'])
+                ->orderBy('id')
+                ->value('id');
+        }
+
+        $state['warehouse_user_id'] = Auth::id();
+
+        return $state;
+    }
+
     public function canAssignTicket(Ticket $ticket): bool
     {
-        return Auth::user()?->can('Update:Ticket')
-            && app(WarehousePanelService::class)->canAssign($ticket);
+        $user = Auth::user();
+
+        return $user?->can('Update:Ticket')
+            && app(WarehousePanelService::class)->canUserAssignResources($user, $ticket);
     }
 
     public function canAdvanceTicket(Ticket $ticket): bool
@@ -375,9 +518,19 @@ class WarehousePanel extends Page implements HasActions
 
     public function canReviewLoadingChecklist(Ticket $ticket): bool
     {
-        return Auth::user()?->can('Update:Ticket')
-            && app(WarehousePanelService::class)->canReviewLoadingChecklist($ticket)
+        $user = Auth::user();
+
+        return $user?->can('Update:Ticket')
+            && app(WarehousePanelService::class)->canUserReviewLoadingChecklist($user, $ticket)
             && ! $ticket->isLoadingChecklistReviewed();
+    }
+
+    public function canMarkLoaded(Ticket $ticket): bool
+    {
+        $user = Auth::user();
+
+        return $user?->can('Update:Ticket')
+            && app(WarehousePanelService::class)->canUserMarkLoaded($user, $ticket);
     }
 
     public function ticketViewUrl(Ticket $ticket): string

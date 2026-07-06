@@ -22,7 +22,13 @@ class DriverProfileForm
                     ->schema([
                         Select::make('user_id')
                             ->label('Usuario')
-                            ->relationship('user', 'name')
+                            ->relationship(
+                                'user',
+                                'name',
+                                fn ($query) => $query
+                                    ->where('is_active', true)
+                                    ->role('driver'),
+                            )
                             ->searchable()
                             ->preload()
                             ->required()

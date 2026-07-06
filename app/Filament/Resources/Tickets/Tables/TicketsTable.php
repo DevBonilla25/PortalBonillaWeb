@@ -17,27 +17,46 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 class TicketsTable
 {
     private const DISPLAY_TIMEZONE = 'America/Guayaquil';
 
+    private const ADMIN_ROLES = ['super_admin', 'admin'];
+
+    private const CASHIER_ROLES = ['cashier'];
+
+    private const WAREHOUSE_ROLES = ['warehouse_operator', 'warehouse_assistant'];
+
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
-                'zone',
-                'cashier',
-                'currentDriver.user',
-                'latestAssignment.warehouseUser',
-            ]))
+            ->modifyQueryUsing(function (Builder $query): Builder {
+                $user = Auth::user();
+
+                return $query
+                    ->with([
+                        'zone',
+                        'cashier',
+                        'currentDriver.user',
+                        'latestAssignment.warehouseUser',
+                    ])
+                    ->when(
+                        $user
+                            && $user->hasAnyRole(self::CASHIER_ROLES)
+                            && ! $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_ROLES]),
+                        fn (Builder $query): Builder => $query->where('cashier_id', $user->id),
+                    );
+            })
             ->columns([
                 TextColumn::make('ticket_code')
-                    ->label('Código')
+                    ->label('N° Documento')
                     ->searchable()
                     ->sortable()
                     ->url(fn ($record): string => TicketResource::getUrl('view', ['record' => $record]))
-                    ->color('primary')
+                    ->color(fn ($record): string => static::statusColor($record->status))
                     ->weight('semibold'),
                 TextColumn::make('customer_name')
                     ->label('Cliente')
@@ -52,19 +71,21 @@ class TicketsTable
                     ->label('Zona')
                     ->placeholder('-')
                     ->sortable(),
-                TextColumn::make('cashier.name')
-                    ->label('Cajero')
-                    ->placeholder('-')
-                    ->sortable(),
-                TextColumn::make('latestAssignment.warehouseUser.name')
-                    ->label('Bodeguero')
-                    ->placeholder('-'),
                 TextColumn::make('currentDriver.user.name')
                     ->label('Chofer')
                     ->placeholder('-'),
                 TextColumn::make('status')
                     ->label('Estado')
+                    ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
+                    ->color(fn (TicketStatus $state): string => static::statusColor($state))
                     ->badge()
+                    ->sortable(),
+                TextColumn::make('latestAssignment.warehouseUser.name')
+                    ->label('Bodeguero')
+                    ->placeholder('-'),
+                TextColumn::make('cashier.name')
+                    ->label('Cajero')
+                    ->placeholder('-')
                     ->sortable(),
                 TextColumn::make('priority')
                     ->label('Prioridad')
@@ -86,10 +107,12 @@ class TicketsTable
             ])
             ->defaultSort('updated_at', 'desc')
             ->filters([
-                SelectFilter::make('status')
+                SelectFilter::make('status_group')
                     ->label('Estado')
-                    ->options(TicketStatus::class)
-                    ->placeholder('Todos'),
+                    ->options(static::statusGroupOptions())
+                    ->default('sent_to_warehouse')
+                    ->selectablePlaceholder(false)
+                    ->query(fn (Builder $query, array $data): Builder => static::applyStatusGroupFilter($query, $data['value'] ?? 'sent_to_warehouse')),
                 SelectFilter::make('zone_id')
                     ->label('Zona')
                     ->relationship('zone', 'name')
@@ -142,13 +165,13 @@ class TicketsTable
                 'xl' => 5,
             ])
             ->deferFilters(false)
-            ->description(function () use ($table): string {
+            ->description(function () use ($table): HtmlString {
                 $livewire = $table->getLivewire();
                 $total = method_exists($livewire, 'getFilteredTableQuery')
                     ? ($livewire->getFilteredTableQuery()?->count() ?? 0)
                     : 0;
 
-                return $total === 1 ? "{$total} ticket" : "{$total} tickets";
+                return static::tableDescription($total);
             })
             ->recordActions([
                 ViewAction::make()
@@ -175,5 +198,117 @@ class TicketsTable
         }
 
         return $date->format('d/m/Y H:i');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function statusGroupOptions(): array
+    {
+        return [
+            'sent_to_warehouse' => 'Enviado a bodega',
+            'in_route' => 'En ruta',
+            'delivered' => 'Entregados',
+            'all' => 'Todos',
+        ];
+    }
+
+    private static function applyStatusGroupFilter(Builder $query, ?string $group): Builder
+    {
+        return match ($group) {
+            'in_route' => $query->whereIn('status', static::statusValues([
+                TicketStatus::Dispatched,
+                TicketStatus::InRoute,
+            ])),
+            'delivered' => $query->whereIn('status', static::statusValues([
+                TicketStatus::Delivered,
+                TicketStatus::ArrivedBack,
+            ])),
+            'all' => $query,
+            default => $query->whereIn('status', static::statusValues(static::pendingStatuses())),
+        };
+    }
+
+    /**
+     * @return list<TicketStatus>
+     */
+    private static function pendingStatuses(): array
+    {
+        return [
+            TicketStatus::Created,
+            TicketStatus::SentToWarehouse,
+            TicketStatus::AssignedToWarehouse,
+            TicketStatus::Picking,
+            TicketStatus::Loading,
+            TicketStatus::Loaded,
+        ];
+    }
+
+    /**
+     * @param  list<TicketStatus>  $statuses
+     * @return list<string>
+     */
+    private static function statusValues(array $statuses): array
+    {
+        return array_map(fn (TicketStatus $status): string => $status->value, $statuses);
+    }
+
+    private static function statusColor(TicketStatus $status): string
+    {
+        return match ($status) {
+            TicketStatus::Created,
+            TicketStatus::SentToWarehouse,
+            TicketStatus::AssignedToWarehouse,
+            TicketStatus::Picking,
+            TicketStatus::Loading,
+            TicketStatus::Loaded => 'warning',
+
+            TicketStatus::Dispatched,
+            TicketStatus::InRoute,
+            TicketStatus::Returning => 'info',
+
+            TicketStatus::Delivered,
+            TicketStatus::ArrivedBack => 'success',
+
+            TicketStatus::DeliveryFailed,
+            TicketStatus::Cancelled => 'danger',
+        };
+    }
+
+    private static function tableDescription(int $total): HtmlString
+    {
+        $ticketCount = $total === 1 ? "{$total} ticket" : "{$total} tickets";
+
+        $badges = collect([
+            ['label' => 'Pendientes', 'color' => 'warning'],
+            ['label' => 'En ruta', 'color' => 'info'],
+            ['label' => 'Entregados', 'color' => 'success'],
+            ['label' => 'Cancelado / Novedad', 'color' => 'danger'],
+        ])
+            ->map(fn (array $badge): string => static::legendBadge($badge['label'], $badge['color']))
+            ->implode(' ');
+
+        return new HtmlString(<<<HTML
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
+                <span>{$ticketCount}</span>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; font-weight: 500; color: rgb(107 114 128);">Colores:</span>
+                    {$badges}
+                </div>
+            </div>
+        HTML);
+    }
+
+    private static function legendBadge(string $label, string $color): string
+    {
+        [$background, $text, $border] = match ($color) {
+            'warning' => ['#fffbeb', '#b45309', '#fcd34d'],
+            'info' => ['#eff6ff', '#1d4ed8', '#93c5fd'],
+            'success' => ['#f0fdf4', '#15803d', '#86efac'],
+            'danger' => ['#fef2f2', '#b91c1c', '#fca5a5'],
+            default => ['#f9fafb', '#374151', '#d1d5db'],
+        };
+
+        return '<span style="display: inline-flex; align-items: center; border-radius: 0.375rem; border: 1px solid '.$border.'; background: '.$background.'; color: '.$text.'; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.25rem;">'.e($label).'</span>';
     }
 }

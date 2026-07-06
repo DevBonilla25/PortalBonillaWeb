@@ -1,9 +1,64 @@
 <x-filament-panels::page>
     @once
         <style>
-            .wh-panel-search {
+            .wh-panel-filters {
+                display: grid;
+                grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr);
+                gap: 0.75rem;
+                align-items: end;
                 margin-bottom: 1.5rem;
-                max-width: 36rem;
+            }
+
+            @media (max-width: 768px) {
+                .wh-panel-filters {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
+
+            .wh-panel-field {
+                display: flex;
+                flex-direction: column;
+                gap: 0.375rem;
+                min-width: 0;
+            }
+
+            .wh-panel-label {
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: rgb(75 85 99);
+            }
+
+            .dark .wh-panel-label {
+                color: rgb(209 213 219);
+            }
+
+            .wh-zone-legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                align-items: center;
+                min-height: 2.625rem;
+            }
+
+            .wh-zone-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.375rem;
+                border-radius: 9999px;
+                padding: 0.25rem 0.625rem;
+                color: #fff;
+                font-size: 0.75rem;
+                font-weight: 700;
+                line-height: 1rem;
+                white-space: nowrap;
+            }
+
+            .wh-zone-chip-dot {
+                width: 0.5rem;
+                height: 0.5rem;
+                border-radius: 9999px;
+                background: rgb(255 255 255 / 0.85);
+                flex-shrink: 0;
             }
 
             .wh-kanban {
@@ -88,6 +143,8 @@
             }
 
             .wh-kanban-card {
+                --zone-color: rgb(217 119 6);
+                --zone-rgb: 217 119 6;
                 display: flex;
                 flex-direction: column;
                 gap: 0.75rem;
@@ -98,9 +155,25 @@
                 border: 1px solid rgb(0 0 0 / 0.05);
             }
 
+            .wh-kanban-card--zoned {
+                border-color: rgb(var(--zone-rgb) / 0.38);
+                border-left: 5px solid var(--zone-color);
+                background:
+                    linear-gradient(0deg, rgb(var(--zone-rgb) / 0.08), rgb(var(--zone-rgb) / 0.08)),
+                    #fff;
+            }
+
             .dark .wh-kanban-card {
                 background: rgb(17 24 39);
                 border-color: rgb(255 255 255 / 0.1);
+            }
+
+            .dark .wh-kanban-card--zoned {
+                border-color: rgb(var(--zone-rgb) / 0.55);
+                border-left-color: var(--zone-color);
+                background:
+                    linear-gradient(0deg, rgb(var(--zone-rgb) / 0.16), rgb(var(--zone-rgb) / 0.16)),
+                    rgb(17 24 39);
             }
 
             .wh-kanban-card-header {
@@ -186,6 +259,14 @@
                 border-top-color: rgb(255 255 255 / 0.1);
             }
 
+            .wh-kanban-card--zoned .wh-kanban-card-actions {
+                border-top-color: rgb(var(--zone-rgb) / 0.22);
+            }
+
+            .dark .wh-kanban-card--zoned .wh-kanban-card-actions {
+                border-top-color: rgb(var(--zone-rgb) / 0.35);
+            }
+
             .wh-kanban-empty {
                 display: flex;
                 flex: 1;
@@ -204,14 +285,51 @@
         </style>
     @endonce
 
-    <div class="wh-panel-search">
-        <x-filament::input.wrapper>
-            <x-filament::input
-                type="search"
-                wire:model.live.debounce.400ms="search"
-                placeholder="Buscar ticket, cliente, chofer..."
-            />
-        </x-filament::input.wrapper>
+    @if ($this->requiresWarehouseAssignment())
+        <x-filament::section>
+            <x-filament::badge color="warning">Bodega no configurada</x-filament::badge>
+            <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                Este usuario bodeguero debe tener un empleado asociado con sucursal y bodega asignadas en Laravel.
+            </p>
+        </x-filament::section>
+    @else
+    <div class="wh-panel-filters">
+        <div class="wh-panel-field">
+            <label class="wh-panel-label">Bodega</label>
+            <x-filament::input.wrapper>
+                <x-filament::input.select
+                    wire:model.live="warehouseId"
+                    :disabled="$this->isWarehouseSelectorLocked()"
+                >
+                    @foreach ($this->warehouseOptions as $warehouseId => $warehouseName)
+                        <option value="{{ $warehouseId }}">{{ $warehouseName }}</option>
+                    @endforeach
+                </x-filament::input.select>
+            </x-filament::input.wrapper>
+        </div>
+
+        <div class="wh-panel-field">
+            <label class="wh-panel-label">Buscar</label>
+            <x-filament::input.wrapper>
+                <x-filament::input
+                    type="search"
+                    wire:model.live.debounce.400ms="search"
+                    placeholder="Buscar ticket, cliente, chofer..."
+                />
+            </x-filament::input.wrapper>
+        </div>
+
+        <div class="wh-panel-field">
+            <label class="wh-panel-label">Zonas</label>
+            <div class="wh-zone-legend" aria-label="Zonas visibles">
+                @foreach ($this->visibleZones as $zone)
+                    <span class="wh-zone-chip" style="background-color: {{ $zone->color ?? '#6B7280' }};">
+                        <span class="wh-zone-chip-dot"></span>
+                        {{ $zone->name }}
+                    </span>
+                @endforeach
+            </div>
+        </div>
     </div>
 
     <div class="wh-kanban">
@@ -238,26 +356,49 @@
 
                 <div class="wh-kanban-cards">
                     @forelse ($tickets as $ticket)
-                        <div class="wh-kanban-card" wire:key="ticket-{{ $ticket->id }}">
+                        @php
+                            $zoneColor = $ticket->zone?->color;
+                            $zoneRgb = null;
+
+                            if (is_string($zoneColor) && preg_match('/^#?([A-Fa-f0-9]{6})$/', $zoneColor, $matches)) {
+                                $hex = $matches[1];
+                                $zoneRgb = hexdec(substr($hex, 0, 2)) . ' ' . hexdec(substr($hex, 2, 2)) . ' ' . hexdec(substr($hex, 4, 2));
+                                $zoneColor = '#' . strtoupper($hex);
+                            }
+                        @endphp
+                        <div
+                            @class([
+                                'wh-kanban-card',
+                                'wh-kanban-card--zoned' => filled($zoneRgb),
+                            ])
+                            @style([
+                                '--zone-color: ' . $zoneColor => filled($zoneRgb),
+                                '--zone-rgb: ' . $zoneRgb => filled($zoneRgb),
+                            ])
+                            wire:key="ticket-{{ $ticket->id }}"
+                        >
                             <div class="wh-kanban-card-header">
                                 <a href="{{ $this->ticketViewUrl($ticket) }}" class="wh-kanban-card-code">
                                     {{ $ticket->ticket_code }}
                                 </a>
-                                <x-filament::badge :color="$this->priorityColor($ticket->priority)" size="sm">
-                                    {{ $this->priorityLabel($ticket->priority) }}
-                                </x-filament::badge>
+                                @if ($ticket->zone)
+                                    <span class="wh-zone-chip" style="background-color: {{ $ticket->zone->color ?? '#6B7280' }};">
+                                        <span class="wh-zone-chip-dot"></span>
+                                        {{ $ticket->zone->name }}
+                                    </span>
+                                @endif
                             </div>
 
                             <div>
                                 <p class="wh-kanban-card-customer">{{ $ticket->customer_name }}</p>
                                 <p class="wh-kanban-card-meta">
-                                    {{ $ticket->zone?->name ?? 'Sin zona' }}
-                                    ·
-                                    {{ $ticket->items_count ?? $ticket->items->count() }}
-                                    {{ ($ticket->items_count ?? $ticket->items->count()) === 1 ? 'producto' : 'productos' }}
+                                    Sucursal: {{ $ticket->warehouse?->name ?? 'Sin bodega' }}
                                 </p>
                                 <p class="wh-kanban-card-meta">
                                     Chofer: {{ $ticket->currentDriver?->user?->name ?? 'Sin asignar' }}
+                                    ·
+                                    {{ $ticket->items_count ?? $ticket->items->count() }}
+                                    {{ ($ticket->items_count ?? $ticket->items->count()) === 1 ? 'producto' : 'productos' }}
                                 </p>
                                 @if ($ticket->latestAssignment?->assistants?->isNotEmpty())
                                     <p class="wh-kanban-card-meta">
@@ -289,6 +430,10 @@
                                     {!! $this->advanceTicketButtonHtml($ticket->id) !!}
                                 @endif
 
+                                @if ($this->canMarkLoaded($ticket))
+                                    {!! $this->markLoadedButtonHtml($ticket->id) !!}
+                                @endif
+
                                 @if ($this->canReviewLoadingChecklist($ticket))
                                     {!! $this->reviewLoadingChecklistButtonHtml($ticket->id) !!}
                                 @endif
@@ -301,6 +446,8 @@
             </div>
         @endforeach
     </div>
+
+    @endif
 
     <x-filament-actions::modals />
 </x-filament-panels::page>

@@ -24,6 +24,14 @@ use Illuminate\Validation\ValidationException;
 
 class TicketRecordActions
 {
+    private const ADMIN_ROLES = ['super_admin', 'admin'];
+
+    private const CASHIER_ROLES = ['cashier'];
+
+    private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator'];
+
+    private const WAREHOUSE_ASSISTANT_ROLES = ['warehouse_assistant'];
+
     public static function sendToWarehouse(): Action
     {
         return Action::make('sendToWarehouse')
@@ -31,7 +39,14 @@ class TicketRecordActions
             ->icon('heroicon-o-paper-airplane')
             ->color('primary')
             ->requiresConfirmation()
-            ->visible(fn (Ticket $record): bool => $record->status === TicketStatus::Created)
+            ->modalHeading('Enviar ticket a bodega')
+            ->modalDescription('El ticket quedara disponible para gestion de bodega.')
+            ->modalSubmitActionLabel('Si, enviar')
+            ->modalCancelActionLabel('No, volver')
+            ->visible(fn (Ticket $record): bool => self::canCashierOperate() && in_array($record->status, [
+                TicketStatus::Created,
+                TicketStatus::Cancelled,
+            ], true))
             ->action(function (Ticket $record): void {
                 try {
                     app(SendTicketToWarehouseAction::class)->execute($record, Auth::user());
@@ -50,13 +65,51 @@ class TicketRecordActions
             });
     }
 
+    public static function cancelTicket(): Action
+    {
+        return Action::make('cancelTicket')
+            ->label('Cancelar')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Cancelar ticket')
+            ->modalDescription('El ticket quedara cancelado. Podras volver a enviarlo a bodega si es necesario.')
+            ->modalSubmitActionLabel('Si, cancelar')
+            ->modalCancelActionLabel('No, volver')
+            ->visible(fn (Ticket $record): bool => self::canCancelTicket() && in_array($record->status, [
+                TicketStatus::Created,
+                TicketStatus::SentToWarehouse,
+            ], true))
+            ->action(function (Ticket $record): void {
+                try {
+                    app(ChangeTicketStatusAction::class)->execute(
+                        ticket: $record,
+                        nextStatus: TicketStatus::Cancelled,
+                        user: Auth::user(),
+                        description: 'Ticket cancelado desde panel.',
+                    );
+
+                    Notification::make()
+                        ->title('Ticket cancelado')
+                        ->success()
+                        ->send();
+                } catch (DomainException $exception) {
+                    Notification::make()
+                        ->title('No se pudo cancelar el ticket')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
     public static function assignResources(): Action
     {
         return Action::make('assignResources')
             ->label('Asignar recursos')
             ->icon('heroicon-o-user-group')
             ->color('warning')
-            ->visible(fn (Ticket $record): bool => in_array($record->status, [
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
                 TicketStatus::SentToWarehouse,
                 TicketStatus::Picking,
                 TicketStatus::AssignedToWarehouse,
@@ -64,7 +117,10 @@ class TicketRecordActions
             ->modalHeading(fn (Ticket $record): string => TicketAssignmentForm::hasExistingAssignment($record)
                 ? 'Actualizar asignación'
                 : 'Asignar recursos')
-            ->fillForm(fn (Ticket $record): array => TicketAssignmentForm::defaultState($record))
+            ->fillForm(fn (Ticket $record): array => [
+                ...TicketAssignmentForm::defaultState($record),
+                'warehouse_user_id' => Auth::id(),
+            ])
             ->form([
                 Select::make('driver_id')
                     ->label('Chofer')
@@ -95,11 +151,16 @@ class TicketRecordActions
                         ->pluck('name', 'id'))
                     ->searchable()
                     ->preload()
-                    ->nullable(),
+                    ->default(fn (): ?int => Auth::id())
+                    ->disabled()
+                    ->dehydrated(),
                 Select::make('assistant_ids')
                     ->label('Auxiliares')
                     ->options(fn () => User::query()
                         ->where('is_active', true)
+                        ->whereHas('roles', fn ($query) => $query
+                            ->whereIn('name', self::WAREHOUSE_ASSISTANT_ROLES)
+                            ->where('guard_name', 'web'))
                         ->orderBy('name')
                         ->pluck('name', 'id'))
                     ->multiple()
@@ -141,7 +202,7 @@ class TicketRecordActions
             ->label('Cambiar estado')
             ->icon('heroicon-o-arrow-path')
             ->color('gray')
-            ->visible(fn (Ticket $record): bool => $record->status->allowedNextStatuses() !== [])
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && $record->status->allowedNextStatuses() !== [])
             ->form([
                 Select::make('next_status')
                     ->label('Nuevo estado')
@@ -182,7 +243,7 @@ class TicketRecordActions
             ->label('Revisar carga')
             ->icon('heroicon-o-clipboard-document-check')
             ->color('warning')
-            ->visible(fn (Ticket $record): bool => in_array($record->status, [
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
                 TicketStatus::Loaded,
             ], true) && $record->items()->exists())
             ->fillForm(fn (Ticket $record): array => [
@@ -236,5 +297,34 @@ class TicketRecordActions
                         ->send();
                 }
             });
+    }
+
+    private static function canCashierOperate(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null
+            && $user->hasAnyRole([...self::ADMIN_ROLES, ...self::CASHIER_ROLES]);
+    }
+
+    private static function canWarehouseOperate(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null
+            && $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_OPERATOR_ROLES]);
+    }
+
+    private static function canCancelTicket(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null
+            && $user->hasAnyRole([
+                ...self::ADMIN_ROLES,
+                ...self::CASHIER_ROLES,
+                ...self::WAREHOUSE_OPERATOR_ROLES,
+                ...self::WAREHOUSE_ASSISTANT_ROLES,
+            ]);
     }
 }
