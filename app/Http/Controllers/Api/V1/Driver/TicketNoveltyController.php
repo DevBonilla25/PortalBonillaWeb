@@ -8,16 +8,25 @@ use App\Http\Requests\Api\V1\Driver\RegisterTicketNoveltyRequest;
 use App\Http\Resources\Api\V1\TicketNoveltyResource;
 use App\Models\DriverProfile;
 use App\Models\Ticket;
+use DomainException;
+use Illuminate\Http\JsonResponse;
 
 class TicketNoveltyController extends Controller
 {
-    public function store(RegisterTicketNoveltyRequest $request, Ticket $ticket, RegisterTicketNoveltyAction $action): TicketNoveltyResource
+    public function store(RegisterTicketNoveltyRequest $request, Ticket $ticket, RegisterTicketNoveltyAction $action): TicketNoveltyResource|JsonResponse
     {
-        $novelty = $action->execute(
-            ticket: $ticket,
-            driver: $this->driver($request),
-            data: $request->validated(),
-        );
+        try {
+            $novelty = $action->execute(
+                ticket: $ticket,
+                driver: $this->driver($request),
+                data: $request->validated(),
+                photo: $request->file('photo'),
+            );
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         return TicketNoveltyResource::make($novelty);
     }

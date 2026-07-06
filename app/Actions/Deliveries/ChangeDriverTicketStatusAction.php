@@ -8,6 +8,7 @@ use App\Models\DriverProfile;
 use App\Models\Ticket;
 use App\Services\TicketEventService;
 use App\Services\TicketWorkflowService;
+use DomainException;
 use Illuminate\Support\Carbon;
 
 class ChangeDriverTicketStatusAction
@@ -23,6 +24,10 @@ class ChangeDriverTicketStatusAction
     public function execute(Ticket $ticket, DriverProfile $driver, TicketStatus $nextStatus, array $data = []): Ticket
     {
         abort_unless((int) $ticket->current_driver_id === (int) $driver->id, 404);
+
+        if ($nextStatus === TicketStatus::Delivered) {
+            throw new DomainException('Para marcar el ticket como entregado debes registrar la evidencia de entrega.');
+        }
 
         $previousStatus = $ticket->status;
         $ticket = $this->workflow->transition($ticket, $nextStatus);

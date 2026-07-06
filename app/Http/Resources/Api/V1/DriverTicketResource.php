@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\TicketStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,24 +13,54 @@ class DriverTicketResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $allowedNextStatuses = collect($this->status?->allowedNextStatuses() ?? []);
+
         return [
             'id' => $this->id,
             'ticket_code' => $this->ticket_code,
             'guide_number' => $this->guide_number,
             'customer_name' => $this->customer_name,
             'customer_phone' => $this->customer_phone,
+            'customer_phone_2' => $this->customer_phone_2,
             'delivery_address' => $this->delivery_address,
             'delivery_reference' => $this->delivery_reference,
             'priority' => $this->priority?->value,
             'priority_label' => $this->priority?->label(),
             'status' => $this->status?->value,
             'status_label' => $this->status?->label(),
-            'allowed_next_statuses' => collect($this->status?->allowedNextStatuses() ?? [])
+            'allowed_next_statuses' => $allowedNextStatuses
                 ->map(fn ($status): array => [
                     'value' => $status->value,
                     'label' => $status->label(),
                 ])
                 ->values(),
+            'mobile_actions' => [
+                'status_changes' => $allowedNextStatuses
+                    ->reject(fn (TicketStatus $status): bool => $status === TicketStatus::Delivered)
+                    ->map(fn (TicketStatus $status): array => [
+                        'value' => $status->value,
+                        'label' => $status->label(),
+                        'type' => 'status_change',
+                        'endpoint' => "/api/v1/driver/tickets/{$this->id}/change-status",
+                    ])
+                    ->values(),
+                'delivery_evidence' => [
+                    'available' => $allowedNextStatuses->contains(TicketStatus::Delivered),
+                    'trigger_status' => TicketStatus::Delivered->value,
+                    'label' => TicketStatus::Delivered->label(),
+                    'type' => 'delivery_evidence_form',
+                    'endpoint' => "/api/v1/driver/tickets/{$this->id}/evidence",
+                ],
+                'novelty' => [
+                    'available' => ! in_array($this->status, [
+                        TicketStatus::ArrivedBack,
+                        TicketStatus::Cancelled,
+                    ], true),
+                    'type' => 'novelty_form',
+                    'endpoint' => "/api/v1/driver/tickets/{$this->id}/novelties",
+                    'reasons_endpoint' => '/api/v1/driver/novelty-reasons',
+                ],
+            ],
             'zone' => $this->whenLoaded('zone', fn (): ?array => $this->zone ? [
                 'id' => $this->zone->id,
                 'name' => $this->zone->name,

@@ -8,18 +8,26 @@ use App\Http\Requests\Api\V1\Driver\RegisterDeliveryEvidenceRequest;
 use App\Http\Resources\Api\V1\DeliveryEvidenceResource;
 use App\Models\DriverProfile;
 use App\Models\Ticket;
+use DomainException;
+use Illuminate\Http\JsonResponse;
 
 class DeliveryEvidenceController extends Controller
 {
-    public function store(RegisterDeliveryEvidenceRequest $request, Ticket $ticket, RegisterDeliveryEvidenceAction $action): DeliveryEvidenceResource
+    public function store(RegisterDeliveryEvidenceRequest $request, Ticket $ticket, RegisterDeliveryEvidenceAction $action): DeliveryEvidenceResource|JsonResponse
     {
-        $evidence = $action->execute(
-            ticket: $ticket,
-            driver: $this->driver($request),
-            data: $request->validated(),
-            photo: $request->file('photo'),
-            signature: $request->file('signature'),
-        );
+        try {
+            $evidence = $action->execute(
+                ticket: $ticket,
+                driver: $this->driver($request),
+                data: $request->validated(),
+                photo: $request->file('photo'),
+                signature: $request->file('signature'),
+            );
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         return DeliveryEvidenceResource::make($evidence);
     }

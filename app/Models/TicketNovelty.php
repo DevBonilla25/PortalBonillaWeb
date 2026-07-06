@@ -10,8 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'ticket_id',
     'reported_by',
     'driver_id',
+    'novelty_reason_id',
     'novelty_type',
     'description',
+    'photo_path',
     'status',
     'latitude',
     'longitude',
@@ -45,5 +47,10 @@ class TicketNovelty extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(DriverProfile::class, 'driver_id');
+    }
+
+    public function reason(): BelongsTo
+    {
+        return $this->belongsTo(NoveltyReason::class, 'novelty_reason_id');
     }
 }

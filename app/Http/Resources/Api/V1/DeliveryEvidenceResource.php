@@ -26,6 +26,13 @@ class DeliveryEvidenceResource extends JsonResource
             'longitude' => $this->longitude,
             'accuracy' => $this->accuracy,
             'occurred_at' => $this->occurred_at?->toISOString(),
+            'ticket' => $this->whenLoaded('ticket', fn (): array => [
+                'id' => $this->ticket->id,
+                'status' => $this->ticket->status?->value,
+                'status_label' => $this->ticket->status?->label(),
+                'delivered_at' => $this->ticket->delivered_at?->toISOString(),
+                'closed_at' => $this->ticket->closed_at?->toISOString(),
+            ]),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

@@ -19,7 +19,7 @@ class RegisterDeliveryEvidenceRequest extends FormRequest
         return [
             'received_by_name' => ['required', 'string', 'max:150'],
             'received_by_identification' => ['nullable', 'string', 'max:50'],
-            'photo' => ['nullable', 'image', 'max:5120'],
+            'photo' => ['required', 'image', 'max:5120'],
             'signature' => ['nullable', 'image', 'max:5120'],
             'observation' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
