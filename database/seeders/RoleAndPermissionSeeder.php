@@ -70,6 +70,7 @@ class RoleAndPermissionSeeder extends Seeder
             'Vehicle',
             'DriverProfile',
             'Ticket',
+            'NoveltyReason',
         ];
 
         $actions = [

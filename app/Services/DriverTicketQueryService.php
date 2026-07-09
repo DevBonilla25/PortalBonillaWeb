@@ -22,8 +22,9 @@ class DriverTicketQueryService
                 'currentVehicle',
                 'items',
                 'events' => fn ($query) => $query->latest('occurred_at')->limit(20),
-                'deliveryEvidences',
-                'novelties',
+                'deliveryEvidences.mediaAttachments',
+                'novelties.mediaAttachments',
+                'novelties.reason',
             ])
             ->latest('updated_at');
     }
@@ -46,8 +47,9 @@ class DriverTicketQueryService
             'currentVehicle',
             'items',
             'events' => fn ($query) => $query->oldest('occurred_at'),
-            'deliveryEvidences',
-            'novelties',
+            'deliveryEvidences.mediaAttachments',
+            'novelties.mediaAttachments',
+            'novelties.reason',
         ]);
     }
 }

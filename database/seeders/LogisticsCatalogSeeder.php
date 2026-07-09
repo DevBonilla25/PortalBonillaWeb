@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\VehicleStatus;
 use App\Models\Company;
+use App\Models\NoveltyReason;
 use App\Models\Vehicle;
 use App\Models\Zone;
 use Illuminate\Database\Seeder;
@@ -68,6 +69,29 @@ class LogisticsCatalogSeeder extends Seeder
                     'capacity_kg' => $vehicle['capacity_kg'],
                     'status' => VehicleStatus::Available,
                     'is_active' => true,
+                ],
+            );
+        }
+
+        $noveltyReasons = [
+            ['code' => 'client_unavailable', 'name' => 'Cliente no contesta', 'sort_order' => 10],
+            ['code' => 'wrong_address', 'name' => 'Direccion incorrecta', 'sort_order' => 20],
+            ['code' => 'product_rejected', 'name' => 'Producto rechazado', 'sort_order' => 30, 'requires_photo' => true],
+            ['code' => 'vehicle_breakdown', 'name' => 'Vehiculo averiado', 'sort_order' => 40, 'requires_photo' => true],
+            ['code' => 'other', 'name' => 'Otro', 'sort_order' => 50],
+        ];
+
+        foreach ($noveltyReasons as $reason) {
+            NoveltyReason::query()->updateOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'code' => $reason['code'],
+                ],
+                [
+                    'name' => $reason['name'],
+                    'requires_photo' => $reason['requires_photo'] ?? false,
+                    'is_active' => true,
+                    'sort_order' => $reason['sort_order'],
                 ],
             );
         }

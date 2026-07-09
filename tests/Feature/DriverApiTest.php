@@ -138,6 +138,8 @@ it('rejects access to a ticket assigned to another driver', function () {
 });
 
 it('registers delivery evidence and ticket novelties from driver api', function () {
+    config(['filesystems.logistics_media_disk' => 'public']);
+
     Storage::fake('public');
     [$user, $driver, $ticket] = driverApiFixtures();
     Sanctum::actingAs($user, ['driver']);

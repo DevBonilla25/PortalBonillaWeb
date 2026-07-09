@@ -17,8 +17,12 @@ class RegisterTicketNoveltyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'novelty_type' => ['required', 'string', 'max:80'],
+            'novelty_reason_id' => ['required_without:novelty_type', 'nullable', 'integer', 'exists:novelty_reasons,id'],
+            'novelty_type' => ['required_without:novelty_reason_id', 'nullable', 'string', 'max:80'],
             'description' => ['required', 'string', 'max:1500'],
+            'photo' => ['nullable', 'image', 'max:5120'],
+            'photos' => ['nullable', 'array', 'max:10'],
+            'photos.*' => ['image', 'max:5120'],
             'status' => ['nullable', 'string', 'max:50'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
