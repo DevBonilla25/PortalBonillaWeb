@@ -22,8 +22,9 @@ class RegisterDeliveryEvidenceAction
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array<int, UploadedFile>  $photos
      */
-    public function execute(Ticket $ticket, DriverProfile $driver, array $data, ?UploadedFile $photo = null, ?UploadedFile $signature = null): DeliveryEvidence
+    public function execute(Ticket $ticket, DriverProfile $driver, array $data, ?UploadedFile $photo = null, array $photos = [], ?UploadedFile $signature = null): DeliveryEvidence
     {
         abort_unless((int) $ticket->current_driver_id === (int) $driver->id, 404);
 
@@ -35,8 +36,19 @@ class RegisterDeliveryEvidenceAction
             throw new DomainException('Solo puedes registrar evidencia cuando el ticket este listo para marcarse como entregado.');
         }
 
-        $photoPath = $photo?->store("tickets/{$ticket->id}/evidences", 'public');
-        $signaturePath = $signature?->store("tickets/{$ticket->id}/signatures", 'public');
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+        $imageFiles = $this->imageFiles($photo, $photos);
+
+        $storedImages = $this->storeImages(
+            files: $imageFiles,
+            ticket: $ticket,
+            driver: $driver,
+            disk: $mediaDisk,
+            directory: "tickets/{$ticket->ticket_code}/evidences",
+        );
+
+        $photoPath = $storedImages[0]['path'] ?? null;
+        $signaturePath = $signature?->store("tickets/{$ticket->ticket_code}/signatures", $mediaDisk);
         $occurredAt = isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
 
         $evidence = $ticket->deliveryEvidences()->create([
@@ -51,6 +63,10 @@ class RegisterDeliveryEvidenceAction
             'accuracy' => $data['accuracy'] ?? null,
             'occurred_at' => $occurredAt,
         ]);
+
+        foreach ($storedImages as $image) {
+            $evidence->mediaAttachments()->create($image);
+        }
 
         $this->events->record(
             ticket: $ticket,
@@ -99,6 +115,41 @@ class RegisterDeliveryEvidenceAction
             ])->save();
         }
 
-        return $evidence->refresh()->load('ticket');
+        return $evidence->refresh()->load(['ticket', 'mediaAttachments']);
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $photos
+     * @return array<int, UploadedFile>
+     */
+    private function imageFiles(?UploadedFile $photo, array $photos): array
+    {
+        return collect([$photo, ...$photos])
+            ->filter(fn ($file): bool => $file instanceof UploadedFile)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $files
+     * @return array<int, array<string, mixed>>
+     */
+    private function storeImages(array $files, Ticket $ticket, DriverProfile $driver, string $disk, string $directory): array
+    {
+        return collect($files)
+            ->map(function (UploadedFile $file, int $index) use ($ticket, $driver, $disk, $directory): array {
+                return [
+                    'ticket_id' => $ticket->id,
+                    'driver_id' => $driver->id,
+                    'collection' => 'delivery_evidence_photos',
+                    'disk' => $disk,
+                    'path' => $file->store($directory, $disk),
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'sort_order' => $index,
+                ];
+            })
+            ->all();
     }
 }

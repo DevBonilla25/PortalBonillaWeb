@@ -13,6 +13,8 @@ class TicketNoveltyResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+
         return [
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
@@ -27,7 +29,8 @@ class TicketNoveltyResource extends JsonResource
             ] : null),
             'novelty_type' => $this->novelty_type,
             'description' => $this->description,
-            'photo_url' => $this->photo_path ? Storage::disk('public')->url($this->photo_path) : null,
+            'photo_url' => $this->photo_path ? Storage::disk($mediaDisk)->url($this->photo_path) : null,
+            'photos' => MediaAttachmentResource::collection($this->whenLoaded('mediaAttachments')),
             'status' => $this->status,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,

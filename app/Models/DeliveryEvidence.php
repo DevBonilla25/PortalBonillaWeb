@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
     'ticket_id',
@@ -41,5 +42,10 @@ class DeliveryEvidence extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(DriverProfile::class, 'driver_id');
+    }
+
+    public function mediaAttachments(): MorphMany
+    {
+        return $this->morphMany(MediaAttachment::class, 'attachable');
     }
 }

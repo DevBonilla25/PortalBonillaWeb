@@ -25,12 +25,14 @@ class NoveltiesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+
         return $table
             ->recordTitleAttribute('description')
             ->columns([
                 ImageColumn::make('photo_path')
                     ->label('Foto')
-                    ->disk('public')
+                    ->disk($mediaDisk)
                     ->visibility('public')
                     ->imageSize(56)
                     ->square(),
@@ -45,6 +47,9 @@ class NoveltiesRelationManager extends RelationManager
                 TextColumn::make('driver.user.name')
                     ->label('Chofer')
                     ->placeholder('-'),
+                TextColumn::make('media_count')
+                    ->label('Imagenes')
+                    ->state(fn ($record): int => $record->mediaAttachments()->count() ?: (filled($record->photo_path) ? 1 : 0)),
                 TextColumn::make('status')
                     ->label('Estado')
                     ->badge(),
@@ -63,10 +68,20 @@ class NoveltiesRelationManager extends RelationManager
             ])
             ->defaultSort('occurred_at', 'desc')
             ->recordActions([
+                Action::make('view_images')
+                    ->label('Ver imagenes')
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->modalHeading('Imagenes de novedad')
+                    ->modalSubmitAction(false)
+                    ->modalContent(fn ($record) => view('filament.components.media-gallery', [
+                        'record' => $record,
+                        'fallbackDisk' => $mediaDisk,
+                    ]))
+                    ->visible(fn ($record): bool => filled($record->photo_path) || $record->mediaAttachments()->exists()),
                 Action::make('open_photo')
                     ->label('Ver foto')
                     ->icon('heroicon-o-photo')
-                    ->url(fn ($record): ?string => $record->photo_path ? Storage::disk('public')->url($record->photo_path) : null)
+                    ->url(fn ($record): ?string => $record->photo_path ? Storage::disk($mediaDisk)->url($record->photo_path) : null)
                     ->openUrlInNewTab()
                     ->visible(fn ($record): bool => filled($record->photo_path)),
             ]);

@@ -53,8 +53,9 @@ class DriverTicketController extends Controller
             'currentVehicle',
             'items',
             'events',
-            'deliveryEvidences',
-            'novelties',
+            'deliveryEvidences.mediaAttachments',
+            'novelties.mediaAttachments',
+            'novelties.reason',
         ]))->response();
     }
 

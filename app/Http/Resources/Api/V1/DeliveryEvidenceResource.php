@@ -13,14 +13,17 @@ class DeliveryEvidenceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+
         return [
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
             'driver_id' => $this->driver_id,
             'received_by_name' => $this->received_by_name,
             'received_by_identification' => $this->received_by_identification,
-            'photo_url' => $this->photo_path ? Storage::disk('public')->url($this->photo_path) : null,
-            'signature_url' => $this->signature_path ? Storage::disk('public')->url($this->signature_path) : null,
+            'photo_url' => $this->photo_path ? Storage::disk($mediaDisk)->url($this->photo_path) : null,
+            'photos' => MediaAttachmentResource::collection($this->whenLoaded('mediaAttachments')),
+            'signature_url' => $this->signature_path ? Storage::disk($mediaDisk)->url($this->signature_path) : null,
             'observation' => $this->observation,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,

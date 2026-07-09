@@ -21,6 +21,7 @@ class TicketNoveltyController extends Controller
                 driver: $this->driver($request),
                 data: $request->validated(),
                 photo: $request->file('photo'),
+                photos: $request->file('photos', []),
             );
         } catch (DomainException $exception) {
             return response()->json([

@@ -21,6 +21,7 @@ class DeliveryEvidenceController extends Controller
                 driver: $this->driver($request),
                 data: $request->validated(),
                 photo: $request->file('photo'),
+                photos: $request->file('photos', []),
                 signature: $request->file('signature'),
             );
         } catch (DomainException $exception) {

@@ -20,19 +20,29 @@ class RegisterTicketNoveltyAction
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array<int, UploadedFile>  $photos
      */
-    public function execute(Ticket $ticket, DriverProfile $driver, array $data, ?UploadedFile $photo = null): TicketNovelty
+    public function execute(Ticket $ticket, DriverProfile $driver, array $data, ?UploadedFile $photo = null, array $photos = []): TicketNovelty
     {
         abort_unless((int) $ticket->current_driver_id === (int) $driver->id, 404);
 
         $occurredAt = isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
         $reason = $this->resolveReason($driver, $data['novelty_reason_id'] ?? null);
+        $imageFiles = $this->imageFiles($photo, $photos);
 
-        if ($reason?->requires_photo && ! $photo) {
+        if ($reason?->requires_photo && $imageFiles === []) {
             throw new DomainException('Este motivo de novedad requiere una foto.');
         }
 
-        $photoPath = $photo?->store("tickets/{$ticket->id}/novelties", 'public');
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+        $storedImages = $this->storeImages(
+            files: $imageFiles,
+            ticket: $ticket,
+            driver: $driver,
+            disk: $mediaDisk,
+            directory: "tickets/{$ticket->ticket_code}/novelties",
+        );
+        $photoPath = $storedImages[0]['path'] ?? null;
 
         $novelty = $ticket->novelties()->create([
             'reported_by' => $driver->user_id,
@@ -47,6 +57,10 @@ class RegisterTicketNoveltyAction
             'accuracy' => $data['accuracy'] ?? null,
             'occurred_at' => $occurredAt,
         ]);
+
+        foreach ($storedImages as $image) {
+            $novelty->mediaAttachments()->create($image);
+        }
 
         $this->events->record(
             ticket: $ticket,
@@ -77,7 +91,7 @@ class RegisterTicketNoveltyAction
             ])->save();
         }
 
-        return $novelty->refresh()->load('reason');
+        return $novelty->refresh()->load(['reason', 'mediaAttachments']);
     }
 
     private function resolveReason(DriverProfile $driver, mixed $reasonId): ?NoveltyReason
@@ -97,5 +111,40 @@ class RegisterTicketNoveltyAction
         }
 
         return $reason;
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $photos
+     * @return array<int, UploadedFile>
+     */
+    private function imageFiles(?UploadedFile $photo, array $photos): array
+    {
+        return collect([$photo, ...$photos])
+            ->filter(fn ($file): bool => $file instanceof UploadedFile)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $files
+     * @return array<int, array<string, mixed>>
+     */
+    private function storeImages(array $files, Ticket $ticket, DriverProfile $driver, string $disk, string $directory): array
+    {
+        return collect($files)
+            ->map(function (UploadedFile $file, int $index) use ($ticket, $driver, $disk, $directory): array {
+                return [
+                    'ticket_id' => $ticket->id,
+                    'driver_id' => $driver->id,
+                    'collection' => 'ticket_novelty_photos',
+                    'disk' => $disk,
+                    'path' => $file->store($directory, $disk),
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'sort_order' => $index,
+                ];
+            })
+            ->all();
     }
 }

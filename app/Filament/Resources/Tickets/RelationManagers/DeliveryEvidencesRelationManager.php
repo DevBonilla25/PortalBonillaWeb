@@ -25,12 +25,14 @@ class DeliveryEvidencesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+
         return $table
             ->recordTitleAttribute('received_by_name')
             ->columns([
                 ImageColumn::make('photo_path')
                     ->label('Foto')
-                    ->disk('public')
+                    ->disk($mediaDisk)
                     ->visibility('public')
                     ->imageSize(64)
                     ->square(),
@@ -44,6 +46,9 @@ class DeliveryEvidencesRelationManager extends RelationManager
                 TextColumn::make('driver.user.name')
                     ->label('Chofer')
                     ->placeholder('-'),
+                TextColumn::make('media_count')
+                    ->label('Imagenes')
+                    ->state(fn ($record): int => $record->mediaAttachments()->count() ?: (filled($record->photo_path) ? 1 : 0)),
                 TextColumn::make('occurred_at')
                     ->label('Fecha')
                     ->dateTime(timezone: self::DISPLAY_TIMEZONE)
@@ -63,16 +68,26 @@ class DeliveryEvidencesRelationManager extends RelationManager
             ])
             ->defaultSort('occurred_at', 'desc')
             ->recordActions([
+                Action::make('view_images')
+                    ->label('Ver imagenes')
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->modalHeading('Imagenes de evidencia')
+                    ->modalSubmitAction(false)
+                    ->modalContent(fn ($record) => view('filament.components.media-gallery', [
+                        'record' => $record,
+                        'fallbackDisk' => $mediaDisk,
+                    ]))
+                    ->visible(fn ($record): bool => filled($record->photo_path) || $record->mediaAttachments()->exists()),
                 Action::make('open_photo')
                     ->label('Ver foto')
                     ->icon('heroicon-o-photo')
-                    ->url(fn ($record): ?string => $record->photo_path ? Storage::disk('public')->url($record->photo_path) : null)
+                    ->url(fn ($record): ?string => $record->photo_path ? Storage::disk($mediaDisk)->url($record->photo_path) : null)
                     ->openUrlInNewTab()
                     ->visible(fn ($record): bool => filled($record->photo_path)),
                 Action::make('open_signature')
                     ->label('Ver firma')
                     ->icon('heroicon-o-pencil-square')
-                    ->url(fn ($record): ?string => $record->signature_path ? Storage::disk('public')->url($record->signature_path) : null)
+                    ->url(fn ($record): ?string => $record->signature_path ? Storage::disk($mediaDisk)->url($record->signature_path) : null)
                     ->openUrlInNewTab()
                     ->visible(fn ($record): bool => filled($record->signature_path)),
             ]);
