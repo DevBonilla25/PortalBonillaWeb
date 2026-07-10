@@ -293,7 +293,22 @@
             </p>
         </x-filament::section>
     @else
-    <div class="wh-panel-filters">
+    <div
+        wire:poll.5s="pollWarehousePanel"
+        x-data="{
+            playWarehouseNotificationSound(url) {
+                if (! url) {
+                    return
+                }
+
+                const audio = new Audio(url)
+
+                audio.play().catch(() => {})
+            },
+        }"
+        @warehouse-ticket-loaded.window="playWarehouseNotificationSound($event.detail.soundUrl)"
+    >
+        <div class="wh-panel-filters">
         <div class="wh-panel-field">
             <label class="wh-panel-label">Bodega</label>
             <x-filament::input.wrapper>
@@ -330,10 +345,10 @@
                 @endforeach
             </div>
         </div>
-    </div>
+        </div>
 
-    <div class="wh-kanban">
-        @foreach ($this->getColumns() as $column)
+        <div class="wh-kanban">
+            @foreach ($this->getColumns() as $column)
             @php
                 $tickets = $this->ticketsByColumn->get($column->key, collect());
             @endphp
@@ -444,7 +459,8 @@
                     @endforelse
                 </div>
             </div>
-        @endforeach
+            @endforeach
+        </div>
     </div>
 
     @endif

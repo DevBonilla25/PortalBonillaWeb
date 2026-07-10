@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\TicketEventType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Enums\WarehouseType;
 use App\Filament\Pages\WarehousePanel;
 use App\Models\Company;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Models\Zone;
 use App\Services\WarehousePanelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -124,4 +127,90 @@ it('allows warehouse operators to access the warehouse panel page', function () 
     $this->actingAs($user)
         ->get(WarehousePanel::getUrl())
         ->assertSuccessful();
+});
+
+it('finds only new loaded status events for the selected warehouse panel scope', function () {
+    $company = Company::query()->create([
+        'name' => 'Empresa Demo',
+        'ruc' => '1799999999005',
+        'is_active' => true,
+    ]);
+
+    $warehouse = Warehouse::query()->create([
+        'company_id' => $company->id,
+        'code' => 'BOD-1',
+        'name' => 'Bodega Principal',
+        'type' => WarehouseType::General,
+        'is_active' => true,
+    ]);
+
+    $otherWarehouse = Warehouse::query()->create([
+        'company_id' => $company->id,
+        'code' => 'BOD-2',
+        'name' => 'Bodega Alterna',
+        'type' => WarehouseType::General,
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create(['company_id' => $company->id]);
+
+    $ticket = Ticket::query()->create([
+        'company_id' => $company->id,
+        'warehouse_id' => $warehouse->id,
+        'ticket_code' => 'TCK-301',
+        'customer_name' => 'Cliente Demo',
+        'delivery_address' => 'Calle 6',
+        'status' => TicketStatus::Loaded,
+    ]);
+
+    $otherWarehouseTicket = Ticket::query()->create([
+        'company_id' => $company->id,
+        'warehouse_id' => $otherWarehouse->id,
+        'ticket_code' => 'TCK-302',
+        'customer_name' => 'Cliente Externo',
+        'delivery_address' => 'Calle 7',
+        'status' => TicketStatus::Loaded,
+    ]);
+
+    $oldLoadedEvent = $ticket->events()->create([
+        'event_type' => TicketEventType::StatusChanged,
+        'previous_status' => TicketStatus::Loading,
+        'new_status' => TicketStatus::Loaded,
+        'occurred_at' => now()->subMinutes(2),
+        'received_at' => now()->subMinutes(2),
+        'source' => 'mobile',
+    ]);
+
+    $ticket->events()->create([
+        'event_type' => TicketEventType::StatusChanged,
+        'previous_status' => TicketStatus::Loaded,
+        'new_status' => TicketStatus::InRoute,
+        'occurred_at' => now()->subMinute(),
+        'received_at' => now()->subMinute(),
+        'source' => 'mobile',
+    ]);
+
+    $otherWarehouseTicket->events()->create([
+        'event_type' => TicketEventType::StatusChanged,
+        'previous_status' => TicketStatus::Loading,
+        'new_status' => TicketStatus::Loaded,
+        'occurred_at' => now(),
+        'received_at' => now(),
+        'source' => 'mobile',
+    ]);
+
+    $newLoadedEvent = $ticket->events()->create([
+        'event_type' => TicketEventType::StatusChanged,
+        'previous_status' => TicketStatus::Loading,
+        'new_status' => TicketStatus::Loaded,
+        'occurred_at' => now(),
+        'received_at' => now(),
+        'source' => 'mobile',
+    ]);
+
+    $service = app(WarehousePanelService::class);
+
+    expect($service->latestLoadedStatusEventIdForPanel($user, $warehouse->id))->toBe($newLoadedEvent->id)
+        ->and($service->loadedStatusEventsForPanel($user, $warehouse->id, $oldLoadedEvent->id)->pluck('id')->all())
+        ->toBe([$newLoadedEvent->id]);
 });
