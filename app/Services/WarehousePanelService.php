@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\TicketEventType;
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
+use App\Models\TicketEvent;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\Zone;
@@ -130,6 +132,36 @@ class WarehousePanelService
             ->unique('id')
             ->sortBy('name')
             ->values();
+    }
+
+    /**
+     * @return Collection<int, TicketEvent>
+     */
+    public function loadedStatusEventsForPanel(?User $user, ?int $warehouseId = null, ?int $afterEventId = null): Collection
+    {
+        return $this->loadedStatusEventQuery($user, $warehouseId)
+            ->with('ticket')
+            ->when($afterEventId, fn (Builder $query, int $eventId): Builder => $query->where('id', '>', $eventId))
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
+    }
+
+    public function latestLoadedStatusEventIdForPanel(?User $user, ?int $warehouseId = null): ?int
+    {
+        return $this->loadedStatusEventQuery($user, $warehouseId)->max('id');
+    }
+
+    private function loadedStatusEventQuery(?User $user, ?int $warehouseId = null): Builder
+    {
+        $visibleTicketIds = $this->baseQuery($user, $warehouseId)
+            ->select('tickets.id')
+            ->reorder();
+
+        return TicketEvent::query()
+            ->where('event_type', TicketEventType::StatusChanged->value)
+            ->where('new_status', TicketStatus::Loaded->value)
+            ->whereIn('ticket_id', $visibleTicketIds);
     }
 
     private function shouldScopeToEmployeeWarehouse(?User $user): bool

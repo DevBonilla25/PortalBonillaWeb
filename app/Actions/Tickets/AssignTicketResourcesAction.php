@@ -6,6 +6,7 @@ use App\Enums\TicketEventType;
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\DriverPushNotificationService;
 use App\Services\TicketAssignmentService;
 use App\Services\TicketEventService;
 use App\Services\TicketWorkflowService;
@@ -16,6 +17,7 @@ class AssignTicketResourcesAction
         private readonly TicketAssignmentService $assignments,
         private readonly TicketWorkflowService $workflow,
         private readonly TicketEventService $events,
+        private readonly DriverPushNotificationService $driverPushNotifications,
     ) {}
 
     /**
@@ -56,6 +58,10 @@ class AssignTicketResourcesAction
             newStatus: $ticket->status,
             description: 'Recursos asignados al ticket.',
         );
+
+        if ($driverId) {
+            $this->driverPushNotifications->sendTicketAssigned($ticket);
+        }
 
         return $ticket;
     }

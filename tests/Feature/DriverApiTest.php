@@ -4,6 +4,8 @@ use App\Enums\DriverStatus;
 use App\Enums\TicketEventType;
 use App\Enums\TicketStatus;
 use App\Models\Company;
+use App\Models\DriverFcmToken;
+use App\Models\DriverNotification;
 use App\Models\DriverProfile;
 use App\Models\Ticket;
 use App\Models\User;
@@ -183,4 +185,93 @@ it('records driver location points idempotently when local event id is present',
 
     expect($driver->locationPoints()->count())->toBe(1)
         ->and($ticket->events()->where('event_type', TicketEventType::LocationRecorded->value)->count())->toBe(1);
+});
+
+it('stores and updates the authenticated driver fcm token', function () {
+    [$user, $driver] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $payload = [
+        'token' => 'fcm-device-token-001',
+        'platform' => 'android',
+    ];
+
+    $this->postJson('/api/v1/driver/fcm-token', $payload)
+        ->assertOk()
+        ->assertJsonPath('message', 'Token FCM registrado.')
+        ->assertJsonPath('data.platform', 'android');
+
+    $this->postJson('/api/v1/driver/fcm-token', [
+        'token' => 'fcm-device-token-001',
+        'platform' => 'ios',
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.platform', 'ios');
+
+    expect(DriverFcmToken::query()->count())->toBe(1)
+        ->and($driver->fcmTokens()->first())
+        ->not->toBeNull()
+        ->and($driver->fcmTokens()->first()->platform)->toBe('ios');
+});
+
+it('rejects fcm token registration without an active driver profile', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    Sanctum::actingAs($user, ['driver']);
+
+    $this->postJson('/api/v1/driver/fcm-token', [
+        'token' => 'fcm-device-token-002',
+        'platform' => 'android',
+    ])->assertForbidden();
+});
+
+it('lists authenticated driver notifications and marks one as read', function () {
+    [$user, $driver, $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $notification = DriverNotification::query()->create([
+        'driver_profile_id' => $driver->id,
+        'ticket_id' => $ticket->id,
+        'type' => 'ticket_dispatched',
+        'title' => 'Ticket despachado',
+        'body' => 'El ticket TCK-API-001 esta listo para entrega.',
+        'data' => [
+            'ticket_id' => $ticket->id,
+            'ticket_code' => $ticket->ticket_code,
+        ],
+    ]);
+
+    $this->getJson('/api/v1/driver/notifications')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $notification->id)
+        ->assertJsonPath('data.0.read_at', null);
+
+    $this->postJson("/api/v1/driver/notifications/{$notification->id}/read")
+        ->assertOk()
+        ->assertJsonPath('data.id', $notification->id)
+        ->assertJsonPath('data.type', 'ticket_dispatched');
+
+    expect($notification->refresh()->read_at)->not->toBeNull();
+});
+
+it('does not allow a driver to read another driver notification', function () {
+    [$user, , $ticket] = driverApiFixtures();
+    $otherUser = User::factory()->create(['is_active' => true]);
+    $otherDriver = DriverProfile::query()->create([
+        'user_id' => $otherUser->id,
+        'status' => DriverStatus::Assigned,
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($user, ['driver']);
+
+    $notification = DriverNotification::query()->create([
+        'driver_profile_id' => $otherDriver->id,
+        'ticket_id' => $ticket->id,
+        'type' => 'ticket_assigned',
+        'title' => 'Ticket asignado',
+        'body' => 'Se te asigno un ticket.',
+    ]);
+
+    $this->postJson("/api/v1/driver/notifications/{$notification->id}/read")
+        ->assertNotFound();
 });

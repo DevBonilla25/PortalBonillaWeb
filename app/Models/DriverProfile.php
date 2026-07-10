@@ -82,4 +82,14 @@ class DriverProfile extends Model
     {
         return $this->hasMany(LocationPoint::class, 'driver_id');
     }
+
+    public function fcmTokens(): HasMany
+    {
+        return $this->hasMany(DriverFcmToken::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(DriverNotification::class);
+    }
 }

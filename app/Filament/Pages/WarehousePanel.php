@@ -42,6 +42,10 @@ class WarehousePanel extends Page implements HasActions
     use HasLogisticsNavigation;
     use InteractsWithActions;
 
+    private const LOADED_NOTIFICATION_DURATION_MS = 8000;
+
+    private const LOADED_NOTIFICATION_SOUND_PATH = 'sounds/notification-sound.mp3';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     protected static ?string $navigationLabel = 'Panel bodega';
@@ -61,6 +65,8 @@ class WarehousePanel extends Page implements HasActions
 
     #[Url(as: 'bodega')]
     public ?int $warehouseId = null;
+
+    public ?int $lastNotifiedLoadedEventId = null;
 
     public function getHeading(): string|Htmlable
     {
@@ -88,6 +94,8 @@ class WarehousePanel extends Page implements HasActions
 
         $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
             ?? array_key_first($service->warehouseOptions($user));
+
+        $this->resetLoadedTicketNotificationCursor();
     }
 
     /**
@@ -132,6 +140,16 @@ class WarehousePanel extends Page implements HasActions
     public function getVisibleZonesProperty(): Collection
     {
         return app(WarehousePanelService::class)->visibleZones(Auth::user(), $this->warehouseId);
+    }
+
+    public function updatedWarehouseId(): void
+    {
+        $this->resetLoadedTicketNotificationCursor();
+    }
+
+    public function pollWarehousePanel(): void
+    {
+        $this->notifyNewLoadedTickets();
     }
 
     public function assignTicketAction(): Action
@@ -536,5 +554,40 @@ class WarehousePanel extends Page implements HasActions
     public function ticketViewUrl(Ticket $ticket): string
     {
         return TicketResource::getUrl('view', ['record' => $ticket]);
+    }
+
+    private function resetLoadedTicketNotificationCursor(): void
+    {
+        $this->lastNotifiedLoadedEventId = app(WarehousePanelService::class)
+            ->latestLoadedStatusEventIdForPanel(Auth::user(), $this->warehouseId);
+    }
+
+    private function notifyNewLoadedTickets(): void
+    {
+        $service = app(WarehousePanelService::class);
+        $events = $service->loadedStatusEventsForPanel(
+            user: Auth::user(),
+            warehouseId: $this->warehouseId,
+            afterEventId: $this->lastNotifiedLoadedEventId,
+        );
+
+        foreach ($events as $event) {
+            $ticket = $event->ticket;
+
+            if (! $ticket) {
+                continue;
+            }
+
+            Notification::make()
+                ->title('Ticket cargado')
+                ->body("El ticket {$ticket->ticket_code} esta listo para validacion/despacho.")
+                ->duration(self::LOADED_NOTIFICATION_DURATION_MS)
+                ->success()
+                ->send();
+
+            $this->dispatch('warehouse-ticket-loaded', soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH));
+
+            $this->lastNotifiedLoadedEventId = $event->id;
+        }
     }
 }
