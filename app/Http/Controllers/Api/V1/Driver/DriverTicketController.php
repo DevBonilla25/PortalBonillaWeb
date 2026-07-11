@@ -19,9 +19,24 @@ class DriverTicketController extends Controller
     public function index(Request $request, DriverTicketQueryService $tickets): JsonResponse
     {
         $driver = $this->driver($request);
+        $scope = $request->query('scope', 'active');
+        $status = $request->filled('status')
+            ? TicketStatus::tryFrom((string) $request->query('status'))
+            : null;
+
+        abort_if($request->filled('status') && $status === null, 422, 'Estado de ticket no valido.');
+
+        if ($scope === 'active') {
+            return DriverTicketResource::collection(
+                $tickets->activeForDriver($driver, $status),
+            )->response();
+        }
+
         $paginated = $tickets->paginateForDriver(
             driver: $driver,
             perPage: min((int) $request->integer('per_page', 15), 50),
+            scope: $scope === 'history' ? 'history' : 'active',
+            status: $status,
         );
 
         return DriverTicketResource::collection($paginated)->response();

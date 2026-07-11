@@ -15,7 +15,9 @@ use Illuminate\Support\Collection;
 
 class WarehousePanelService
 {
-    private const DISPATCHED_LIMIT = 50;
+    private const RECEIVED_LIMIT = 30;
+
+    private const DISPATCHED_LIMIT = 20;
 
     private const ADMIN_ROLES = ['super_admin', 'admin'];
 
@@ -42,7 +44,7 @@ class WarehousePanelService
     public function baseQuery(?User $user = null, ?int $warehouseId = null): Builder
     {
         $query = Ticket::query()
-            ->with(['warehouse', 'zone', 'items', 'currentDriver.user', 'latestAssignment.assistants'])
+            ->with(['warehouse', 'zone', 'currentDriver.user', 'latestAssignment.assistants'])
             ->withCount('items')
             ->whereIn('status', $this->warehouseStatuses())
             ->orderByDesc('updated_at');
@@ -174,7 +176,7 @@ class WarehousePanelService
     /**
      * @return Collection<string, Collection<int, Ticket>>
      */
-    public function ticketsByColumn(?User $user = null, ?string $search = null, ?int $warehouseId = null): Collection
+    public function ticketsByColumn(?User $user = null, ?string $search = null, ?int $warehouseId = null, array $limits = []): Collection
     {
         $query = $this->baseQuery($user, $warehouseId);
 
@@ -191,7 +193,7 @@ class WarehousePanelService
         }
 
         return collect(WarehousePanelColumn::all())
-            ->mapWithKeys(function (WarehousePanelColumn $column) use ($query): array {
+            ->mapWithKeys(function (WarehousePanelColumn $column) use ($query, $limits): array {
                 $columnQuery = $query->clone()->reorder();
 
                 $columnQuery->where(function (Builder $query) use ($column): void {
@@ -210,12 +212,30 @@ class WarehousePanelService
                     ? $columnQuery->orderBy('updated_at')
                     : $columnQuery->orderByDesc('updated_at');
 
-                if ($column->key === 'dispatched') {
-                    $columnQuery->limit(self::DISPATCHED_LIMIT);
+                $limit = $limits[$column->key] ?? $this->defaultLimitForColumn($column->key);
+
+                if ($limit !== null) {
+                    $columnQuery->limit($limit + 1);
                 }
 
                 return [$column->key => $columnQuery->get()];
             });
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function defaultColumnLimits(): array
+    {
+        return [
+            'received' => self::RECEIVED_LIMIT,
+            'dispatched' => self::DISPATCHED_LIMIT,
+        ];
+    }
+
+    private function defaultLimitForColumn(string $column): ?int
+    {
+        return $this->defaultColumnLimits()[$column] ?? null;
     }
 
     public function ticketBelongsToColumn(Ticket $ticket, WarehousePanelColumn $column): bool

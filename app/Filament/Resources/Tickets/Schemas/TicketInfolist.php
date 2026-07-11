@@ -17,102 +17,85 @@ class TicketInfolist
         return $schema
             ->columns(12)
             ->components([
-                Section::make('Resumen del ticket')
+                Section::make('Resumen del ticket y Operaciones')
                     ->icon('heroicon-o-ticket')
                     ->columnSpanFull()
-                    ->columns([
-                        'default' => 1,
-                        'md' => 2,
-                        'xl' => 4,
-                    ])
+                    ->columns(10)
                     ->schema([
                         TextEntry::make('ticket_code')
                             ->label('Documento')
                             ->size('lg')
                             ->weight('bold')
-                            ->copyable(),
-                        TextEntry::make('guide_number')
-                            ->label('Guia')
-                            ->placeholder('-')
+                            ->columnSpan(2)
                             ->copyable(),
                         TextEntry::make('status')
                             ->label('Estado')
+                            ->columnSpan(1)
                             ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
                             ->color(fn (TicketStatus $state): string => self::statusColor($state))
-                            ->badge(),
+                            ->badge(),  
+                        TextEntry::make('cashier.name')
+                            ->label('Cajero')
+                            ->placeholder('-')
+                            ->columnSpan(1),
+                        TextEntry::make('warehouse.name')
+                            ->label('Bodega')
+                            ->placeholder('-')
+                            ->badge()
+                            ->color('gray')
+                            ->columnSpan(2),
+                        TextEntry::make('branch.name')
+                            ->label('Sucursal')
+                            ->placeholder('-'),
+                        TextEntry::make('zone.name')
+                            ->label('Zona')
+                            ->placeholder('-')
+                            ->badge()
+                            ->color('info'),
+                        TextEntry::make('guide_number')
+                            ->label('Guia')
+                            ->placeholder('-')
+                            ->columnSpan(1)
+                            ->copyable(),
                         TextEntry::make('priority')
                             ->label('Prioridad')
+                            ->columnSpan(1)
                             ->formatStateUsing(fn (?TicketPriority $state): string => self::priorityLabel($state))
                             ->color(fn (?TicketPriority $state): string => self::priorityColor($state))
                             ->badge(),
                     ]),
 
-                Grid::make([
-                    'default' => 1,
-                    'xl' => 7,
-                ])
+                Section::make('Cliente y destino')
+                    ->icon('heroicon-o-map-pin')
                     ->columnSpanFull()
+                    ->columns(9)
                     ->schema([
-                        Section::make('Cliente y destino')
-                            ->icon('heroicon-o-map-pin')
-                            ->columnSpan([
-                                'default' => 'full',
-                                'xl' => 4,
-                            ])
-                            ->columns([
-                                'default' => 1,
-                                'md' => 2,
-                            ])
-                            ->schema([
-                                TextEntry::make('customer_name')
-                                    ->label('Cliente')
-                                    ->size('lg')
-                                    ->weight('semibold')
-                                    ->columnSpanFull(),
-                                TextEntry::make('customer_phone')
-                                    ->label('Telefono')
-                                    ->placeholder('-')
-                                    ->copyable(),
-                                TextEntry::make('customer_phone_2')
-                                    ->label('Telefono 2')
-                                    ->placeholder('-')
-                                    ->copyable(),
-                                TextEntry::make('delivery_address')
-                                    ->label('Direccion')
-                                    ->placeholder('Pendiente de completar')
-                                    ->columnSpanFull(),
-                                TextEntry::make('delivery_reference')
-                                    ->label('Referencia')
-                                    ->placeholder('-')
-                                    ->columnSpanFull(),
-                            ]),
-
-                        Section::make('Operacion')
-                            ->icon('heroicon-o-building-storefront')
-                            ->columnSpan([
-                                'default' => 'full',
-                                'xl' => 3,
-                            ])
-                            ->columns(1)
-                            ->schema([
-                                TextEntry::make('warehouse.name')
-                                    ->label('Bodega')
-                                    ->placeholder('-')
-                                    ->badge()
-                                    ->color('gray'),
-                                TextEntry::make('branch.name')
-                                    ->label('Sucursal')
-                                    ->placeholder('-'),
-                                TextEntry::make('zone.name')
-                                    ->label('Zona')
-                                    ->placeholder('-')
-                                    ->badge()
-                                    ->color('info'),
-                                TextEntry::make('cashier.name')
-                                    ->label('Cajero')
-                                    ->placeholder('-'),
-                            ]),
+                        TextEntry::make('customer_name')
+                            ->label('Cliente')
+                            ->size('lg')
+                            ->weight('semibold')
+                            ->columnSpan(3),
+                        TextEntry::make('customer_phone')
+                            ->label('Telefono')
+                            ->columnSpan(1)
+                            ->placeholder('-')
+                            ->copyable(),
+                        TextEntry::make('customer_phone_2')
+                            ->label('Telefono 2')
+                            ->columnSpan(1)
+                            ->placeholder('-')
+                            ->copyable(),
+                        TextEntry::make('delivery_address')
+                            ->label('Direccion')
+                            ->placeholder('Pendiente de completar')
+                            ->columnSpan(2),
+                        TextEntry::make('delivery_reference')
+                            ->label('Referencia')
+                            ->placeholder('-')
+                            ->columnSpan(2),
                     ]),
+
+                
 
                 Grid::make([
                     'default' => 1,
@@ -120,6 +103,18 @@ class TicketInfolist
                 ])
                     ->columnSpanFull()
                     ->schema([
+                        Section::make('Asignacion actual')
+                            ->icon('heroicon-o-truck')
+                            ->columns(2)
+                            ->schema([
+                                TextEntry::make('currentDriver.user.name')
+                                    ->label('Chofer')
+                                    ->placeholder('Sin asignar'),
+                                TextEntry::make('currentVehicle.plate')
+                                    ->label('Vehiculo')
+                                    ->placeholder('Sin asignar'),
+                            ]),
+
                         Section::make('Documento')
                             ->icon('heroicon-o-document-text')
                             ->columns(1)
@@ -130,22 +125,6 @@ class TicketInfolist
                                 TextEntry::make('observations')
                                     ->label('Observaciones')
                                     ->placeholder('-'),
-                            ]),
-
-                        Section::make('Asignacion actual')
-                            ->icon('heroicon-o-truck')
-                            ->columns([
-                                'default' => 1,
-                                'md' => 2,
-                                'xl' => 3,
-                            ])
-                            ->schema([
-                                TextEntry::make('currentDriver.user.name')
-                                    ->label('Chofer')
-                                    ->placeholder('Sin asignar'),
-                                TextEntry::make('currentVehicle.plate')
-                                    ->label('Vehiculo')
-                                    ->placeholder('Sin asignar'),
                             ]),
                     ]),
             ]);

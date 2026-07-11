@@ -28,39 +28,13 @@ class DriverTicketResource extends JsonResource
             'priority_label' => $this->priority?->label(),
             'status' => $this->status?->value,
             'status_label' => $this->status?->label(),
+            'mobile_bucket' => $this->mobileBucket(),
             'allowed_next_statuses' => $allowedNextStatuses
                 ->map(fn ($status): array => [
                     'value' => $status->value,
                     'label' => $status->label(),
                 ])
                 ->values(),
-            'mobile_actions' => [
-                'status_changes' => $allowedNextStatuses
-                    ->reject(fn (TicketStatus $status): bool => $status === TicketStatus::Delivered)
-                    ->map(fn (TicketStatus $status): array => [
-                        'value' => $status->value,
-                        'label' => $status->label(),
-                        'type' => 'status_change',
-                        'endpoint' => "/api/v1/driver/tickets/{$this->id}/change-status",
-                    ])
-                    ->values(),
-                'delivery_evidence' => [
-                    'available' => $allowedNextStatuses->contains(TicketStatus::Delivered),
-                    'trigger_status' => TicketStatus::Delivered->value,
-                    'label' => TicketStatus::Delivered->label(),
-                    'type' => 'delivery_evidence_form',
-                    'endpoint' => "/api/v1/driver/tickets/{$this->id}/evidence",
-                ],
-                'novelty' => [
-                    'available' => ! in_array($this->status, [
-                        TicketStatus::ArrivedBack,
-                        TicketStatus::Cancelled,
-                    ], true),
-                    'type' => 'novelty_form',
-                    'endpoint' => "/api/v1/driver/tickets/{$this->id}/novelties",
-                    'reasons_endpoint' => '/api/v1/driver/novelty-reasons',
-                ],
-            ],
             'zone' => $this->whenLoaded('zone', fn (): ?array => $this->zone ? [
                 'id' => $this->zone->id,
                 'name' => $this->zone->name,
@@ -76,6 +50,7 @@ class DriverTicketResource extends JsonResource
                 'plate' => $this->currentVehicle->plate,
                 'code' => $this->currentVehicle->code,
             ] : null),
+            'items_count' => $this->whenCounted('items'),
             'items' => TicketItemResource::collection($this->whenLoaded('items')),
             'events' => TicketEventResource::collection($this->whenLoaded('events')),
             'delivery_evidences' => DeliveryEvidenceResource::collection($this->whenLoaded('deliveryEvidences')),
@@ -87,5 +62,23 @@ class DriverTicketResource extends JsonResource
             'closed_at' => $this->closed_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+    }
+
+    private function mobileBucket(): string
+    {
+        return match ($this->status) {
+            TicketStatus::AssignedToWarehouse,
+            TicketStatus::Picking,
+            TicketStatus::Loading,
+            TicketStatus::Loaded,
+            TicketStatus::Dispatched => 'assigned',
+            TicketStatus::InRoute => 'in_route',
+            TicketStatus::DeliveryFailed,
+            TicketStatus::Returning => 'issue',
+            TicketStatus::Delivered,
+            TicketStatus::ArrivedBack,
+            TicketStatus::Cancelled => 'history',
+            default => 'other',
+        };
     }
 }
