@@ -27,7 +27,8 @@ class TicketForm
         return $schema
             ->components([
                 Section::make('Datos operativos')
-                    ->columns(3)
+                    ->columnSpanFull()
+                    ->columns(4)
                     ->schema([
                         Select::make('company_id')
                             ->label('Empresa')
@@ -50,8 +51,8 @@ class TicketForm
                             ->dehydrateStateUsing(fn (?string $state): ?string => $state ? strtoupper($state) : null),
                         TextInput::make('guide_number')
                             ->label('Numero de guia')
-                            ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
-                            ->dehydrated()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(100),
                         Select::make('branch_id')
                             ->label('Sucursal')
@@ -87,11 +88,13 @@ class TicketForm
                             ->searchable()
                             ->preload()
                             ->required(),
+                        /** 
                         Select::make('priority')
                             ->label('Prioridad')
                             ->options(TicketPriority::class)
                             ->nullable()
                             ->default(TicketPriority::Normal->value),
+                        */
                         Select::make('status')
                             ->label('Estado')
                             ->options(TicketStatus::class)
@@ -110,10 +113,12 @@ class TicketForm
                             ->dehydrated(),
                     ]),
                 Section::make('Cliente y destino')
-                    ->columns(2)
+                    ->columnSpanFull()
+                    ->columns(10)
                     ->schema([
                         Select::make('contact_id')
                             ->label('Contacto vinculado')
+                            ->columnSpan(3)
                             ->relationship(
                                 'contact',
                                 'first_name',
@@ -144,24 +149,85 @@ class TicketForm
                         TextInput::make('customer_name')
                             ->label('Cliente')
                             ->required()
+                            ->columnSpan(3)
                             ->disabled(fn (Get $get): bool => $get('external_source') === 'morfeus')
                             ->dehydrated()
                             ->maxLength(255),
                         TextInput::make('customer_phone')
                             ->label('Telefono')
+                            ->columnSpan(2)
                             ->tel()
-                            ->maxLength(50),
+                            ->maxLength(10)
+                            ->required(),
                         TextInput::make('customer_phone_2')
                             ->label('Telefono 2')
+                            ->columnSpan(2)
                             ->tel()
-                            ->maxLength(50),
+                            ->maxLength(10),
                         Textarea::make('delivery_address')
                             ->label('Direccion de entrega')
                             ->required()
-                            ->columnSpanFull(),
+                            ->columnSpan(5),
                         Textarea::make('delivery_reference')
                             ->label('Referencia y Observaciones')
-                            ->columnSpanFull(),
+                            ->columnSpan(5),
+                    ]),
+                Section::make('Productos')
+                    ->columnSpanFull()
+                    ->hidden(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                    ->schema([
+                        Repeater::make('items')
+                            ->label('Productos')
+                            ->relationship()
+                            ->schema([
+                                TextInput::make('product_code')
+                                    ->label('Codigo')
+                                    ->columnSpan(1)
+                                    ->maxLength(100)
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
+                                Hidden::make('external_line'),
+                                Hidden::make('external_item_id'),
+                                Hidden::make('external_unit_id'),
+                                Hidden::make('external_snapshot'),
+                                TextInput::make('product_name')
+                                    ->label('Producto')
+                                    ->required()
+                                    ->columnSpan(5)
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated()
+                                    ->maxLength(255),
+                                TextInput::make('quantity')
+                                    ->label('Cantidad')
+                                    ->columnSpan(1)
+                                    ->numeric()
+                                    ->default(1)
+                                    ->required()
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
+                                TextInput::make('unit')
+                                    ->label('Unidad')
+                                    ->columnSpan(1)
+                                    ->maxLength(50)
+                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
+                                    ->dehydrated(),
+                                Textarea::make('observations')
+                                    ->label('Observaciones')
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(8)
+                            ->addable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
+                            ->deletable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
+                            ->reorderable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
+                            ->defaultItems(1),
+                    ]),
+                Section::make('Productos Morfeus')
+                    ->columnSpanFull()
+                    ->visible(fn (Get $get): bool => $get('external_source') === 'morfeus')
+                    ->schema([
+                        Placeholder::make('morfeus_items_preview')
+                            ->label('')
+                            ->content(fn (Get $get): HtmlString => self::morfeusItemsPreview($get('external_snapshot'))),
                     ]),
                 Section::make('Asignacion inicial')
                     ->columns(2)
@@ -184,66 +250,19 @@ class TicketForm
                             ->disabled()
                             ->dehydrated(false),
                     ]),
-                Section::make('Productos')
-                    ->hidden(fn (Get $get): bool => $get('external_source') === 'morfeus')
-                    ->schema([
-                        Repeater::make('items')
-                            ->label('Productos')
-                            ->relationship()
-                            ->schema([
-                                TextInput::make('product_code')
-                                    ->label('Codigo')
-                                    ->maxLength(100)
-                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
-                                    ->dehydrated(),
-                                Hidden::make('external_line'),
-                                Hidden::make('external_item_id'),
-                                Hidden::make('external_unit_id'),
-                                Hidden::make('external_snapshot'),
-                                TextInput::make('product_name')
-                                    ->label('Producto')
-                                    ->required()
-                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
-                                    ->dehydrated()
-                                    ->maxLength(255),
-                                TextInput::make('quantity')
-                                    ->label('Cantidad')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->required()
-                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
-                                    ->dehydrated(),
-                                TextInput::make('unit')
-                                    ->label('Unidad')
-                                    ->maxLength(50)
-                                    ->disabled(fn (Get $get): bool => $get('../../external_source') === 'morfeus')
-                                    ->dehydrated(),
-                                Textarea::make('observations')
-                                    ->label('Observaciones')
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(4)
-                            ->addable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
-                            ->deletable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
-                            ->reorderable(fn (Get $get): bool => $get('external_source') !== 'morfeus')
-                            ->defaultItems(1),
-                    ]),
-                Section::make('Productos Morfeus')
-                    ->visible(fn (Get $get): bool => $get('external_source') === 'morfeus')
-                    ->schema([
-                        Placeholder::make('morfeus_items_preview')
-                            ->label('')
-                            ->content(fn (Get $get): HtmlString => self::morfeusItemsPreview($get('external_snapshot'))),
-                    ]),
                 Section::make('Documento y observaciones')
                     ->schema([
                         FileUpload::make('source_image_path')
                             ->label('Imagen de guia')
                             ->directory('ticket-guides')
                             ->image()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->nullable(),
                         Textarea::make('observations')
                             ->label('Observaciones')
+                            ->disabled()
+                            ->dehydrated(false)
                             ->columnSpanFull(),
                     ]),
                 Hidden::make('external_source'),

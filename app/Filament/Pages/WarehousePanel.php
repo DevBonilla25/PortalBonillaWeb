@@ -66,6 +66,11 @@ class WarehousePanel extends Page implements HasActions
     #[Url(as: 'bodega')]
     public ?int $warehouseId = null;
 
+    /**
+     * @var array<string, int>
+     */
+    public array $columnLimits = [];
+
     public ?int $lastNotifiedLoadedEventId = null;
 
     public function getHeading(): string|Htmlable
@@ -87,6 +92,8 @@ class WarehousePanel extends Page implements HasActions
     {
         $service = app(WarehousePanelService::class);
         $user = Auth::user();
+
+        $this->columnLimits = $service->defaultColumnLimits();
 
         if ($service->requiresWarehouseAssignment($user)) {
             return;
@@ -115,7 +122,37 @@ class WarehousePanel extends Page implements HasActions
             user: Auth::user(),
             search: $this->search,
             warehouseId: $this->warehouseId,
+            limits: $this->columnLimits,
         );
+    }
+
+    public function loadMore(string $column): void
+    {
+        $defaultLimits = app(WarehousePanelService::class)->defaultColumnLimits();
+
+        if (! array_key_exists($column, $defaultLimits)) {
+            return;
+        }
+
+        $this->columnLimits[$column] = ($this->columnLimits[$column] ?? $defaultLimits[$column]) + 20;
+    }
+
+    public function visibleTicketsForColumn(string $column, Collection $tickets): Collection
+    {
+        $limit = $this->columnLimits[$column] ?? null;
+
+        if ($limit === null) {
+            return $tickets;
+        }
+
+        return $tickets->take($limit);
+    }
+
+    public function columnHasMore(string $column, Collection $tickets): bool
+    {
+        $limit = $this->columnLimits[$column] ?? null;
+
+        return $limit !== null && $tickets->count() > $limit;
     }
 
     public function requiresWarehouseAssignment(): bool

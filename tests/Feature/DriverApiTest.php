@@ -100,9 +100,62 @@ it('returns only tickets assigned to the authenticated driver', function () {
     $this->getJson('/api/v1/driver/tickets')
         ->assertOk()
         ->assertJsonPath('data.0.id', $ticket->id)
+        ->assertJsonPath('data.0.mobile_bucket', 'assigned')
+        ->assertJsonPath('data.0.items_count', 1)
+        ->assertJsonPath('data.0.allowed_next_statuses.0.value', TicketStatus::InRoute->value)
+        ->assertJsonMissingPath('data.0.mobile_actions')
+        ->assertJsonMissingPath('data.0.items')
+        ->assertJsonMissingPath('data.0.events')
+        ->assertJsonMissingPath('data.0.delivery_evidences')
+        ->assertJsonMissingPath('data.0.novelties')
+        ->assertJsonMissingPath('links')
+        ->assertJsonMissingPath('meta')
         ->assertJsonCount(1, 'data');
 
     expect($driver->tickets()->count())->toBe(1);
+});
+
+it('returns active tickets regardless of assignment age and excludes delivered tickets', function () {
+    [$user, $driver, $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill([
+        'assigned_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ])->save();
+
+    Ticket::query()->create([
+        'company_id' => $ticket->company_id,
+        'current_driver_id' => $driver->id,
+        'ticket_code' => 'TCK-DELIVERED',
+        'customer_name' => 'Cliente entregado',
+        'delivery_address' => 'Direccion entregada',
+        'status' => TicketStatus::Delivered,
+        'delivered_at' => now(),
+        'closed_at' => now(),
+    ]);
+
+    $this->getJson('/api/v1/driver/tickets?scope=active')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $ticket->id);
+});
+
+it('keeps delivered tickets in paginated driver history', function () {
+    [$user, $driver, $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill([
+        'status' => TicketStatus::Delivered,
+        'delivered_at' => now(),
+        'closed_at' => now(),
+    ])->save();
+
+    $this->getJson('/api/v1/driver/tickets?scope=history')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $ticket->id)
+        ->assertJsonPath('data.0.mobile_bucket', 'history')
+        ->assertJsonPath('meta.per_page', 15);
 });
 
 it('allows a driver to change status with location and records an event', function () {

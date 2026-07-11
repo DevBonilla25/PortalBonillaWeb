@@ -209,6 +209,16 @@
                 color: rgb(107 114 128);
             }
 
+            .wh-kanban-card-meta-row {
+                display: flex;
+                justify-content: space-between;
+                gap: 0.75rem;
+            }
+
+            .wh-kanban-card-meta-row span {
+                min-width: 0;
+            }
+
             .wh-kanban-card-items {
                 margin: 0;
                 padding: 0;
@@ -282,6 +292,12 @@
             .dark .wh-kanban-empty {
                 border-color: rgb(255 255 255 / 0.1);
             }
+
+            .wh-kanban-load-more {
+                display: flex;
+                justify-content: center;
+                padding-top: 0.25rem;
+            }
         </style>
     @endonce
 
@@ -350,7 +366,9 @@
         <div class="wh-kanban">
             @foreach ($this->getColumns() as $column)
             @php
-                $tickets = $this->ticketsByColumn->get($column->key, collect());
+                $columnTickets = $this->ticketsByColumn->get($column->key, collect());
+                $tickets = $this->visibleTicketsForColumn($column->key, $columnTickets);
+                $hasMore = $this->columnHasMore($column->key, $columnTickets);
             @endphp
 
             <div class="wh-kanban-column" wire:key="column-{{ $column->key }}">
@@ -409,11 +427,12 @@
                                 <p class="wh-kanban-card-meta">
                                     Sucursal: {{ $ticket->warehouse?->name ?? 'Sin bodega' }}
                                 </p>
-                                <p class="wh-kanban-card-meta">
-                                    Chofer: {{ $ticket->currentDriver?->user?->name ?? 'Sin asignar' }}
-                                    ·
-                                    {{ $ticket->items_count ?? $ticket->items->count() }}
-                                    {{ ($ticket->items_count ?? $ticket->items->count()) === 1 ? 'producto' : 'productos' }}
+                                <p class="wh-kanban-card-meta wh-kanban-card-meta-row">
+                                    <span>Chofer: {{ $ticket->currentDriver?->user?->name ?? 'Sin asignar' }}</span>
+                                    <span>
+                                        {{ $ticket->items_count ?? 0 }}
+                                        {{ ($ticket->items_count ?? 0) === 1 ? 'producto' : 'productos' }}
+                                    </span>
                                 </p>
                                 @if ($ticket->latestAssignment?->assistants?->isNotEmpty())
                                     <p class="wh-kanban-card-meta">
@@ -421,20 +440,6 @@
                                     </p>
                                 @endif
                             </div>
-
-                            @if ($ticket->items->isNotEmpty())
-                                <ul class="wh-kanban-card-items">
-                                    @foreach ($ticket->items->take(2) as $item)
-                                        <li class="wh-kanban-card-item">
-                                            <span class="wh-kanban-card-item-name">{{ $item->product_name }}</span>
-                                            <span class="wh-kanban-card-item-qty">x{{ rtrim(rtrim((string) $item->quantity, '0'), '.') }}</span>
-                                        </li>
-                                    @endforeach
-                                    @if ($remaining = $ticket->remainingItemsCount())
-                                        <li class="wh-kanban-card-more">+{{ $remaining }} más</li>
-                                    @endif
-                                </ul>
-                            @endif
 
                             <div class="wh-kanban-card-actions">
                                 @if ($this->canAssignTicket($ticket))
@@ -457,6 +462,22 @@
                     @empty
                         <div class="wh-kanban-empty">Sin tickets</div>
                     @endforelse
+
+                    @if ($hasMore)
+                        <div class="wh-kanban-load-more">
+                            <x-filament::button
+                                type="button"
+                                color="gray"
+                                size="sm"
+                                outlined
+                                wire:click="loadMore('{{ $column->key }}')"
+                                wire:loading.attr="disabled"
+                                wire:target="loadMore('{{ $column->key }}')"
+                            >
+                                Ver más
+                            </x-filament::button>
+                        </div>
+                    @endif
                 </div>
             </div>
             @endforeach

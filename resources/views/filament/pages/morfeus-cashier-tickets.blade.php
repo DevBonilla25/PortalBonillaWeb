@@ -372,6 +372,7 @@
                                             <x-filament::button
                                                 size="sm"
                                                 :color="($ticket['local_ticket']['exists'] ?? false) ? 'gray' : 'primary'"
+                                                :disabled="! ($ticket['warehouse']['mapped_warehouse'] ?? null) || ($ticket['local_ticket']['exists'] ?? false)"
                                                 wire:click="createTicketFromMorfeus({{ (int) $ticket['detail_id'] }}, {{ (int) ($ticket['warehouse']['external_id'] ?? 0) }})"
                                             >
                                                 Ver Ticket
