@@ -206,6 +206,7 @@ class MorfeusTicketService
                 'external_id' => $ticket->usuario_id,
                 'name' => $ticket->usuario,
             ],
+            'customer' => $this->normalizeCustomer($ticket),
             'morfeus_status' => $ticket->estado_morfeus,
             'logistic_status' => $this->logisticStatus($ticket->estado_morfeus),
             'items_count' => $ticket->items_count ?? null,
@@ -240,17 +241,7 @@ class MorfeusTicketService
                 'external_id' => $ticket->usuario_id,
                 'name' => $ticket->usuario,
             ],
-            'customer' => [
-                'external_id' => $ticket->cliente_id ?? null,
-                'name' => $this->firstFilled($ticket->cliente_nombre ?? null, $ticket->cliente_catalogo_nombre ?? null),
-                'identification' => $this->firstFilled($ticket->cliente_identificacion ?? null, $ticket->cliente_catalogo_identificacion ?? null),
-                'email' => $this->firstFilled($ticket->cliente_correo ?? null, $ticket->cliente_catalogo_correo ?? null),
-                'recipient_name' => $ticket->destinatario_nombre ?? null,
-                'recipient_identification' => $ticket->destinatario_identificacion ?? null,
-                'phone' => $this->firstFilled($ticket->destinatario_telefono ?? null, $ticket->cliente_catalogo_telefono ?? null),
-                'delivery_address' => $ticket->cliente_catalogo_direccion ?? null,
-                'invoice_observation' => $ticket->observacion_factura ?? null,
-            ],
+            'customer' => $this->normalizeCustomer($ticket),
             'morfeus_status' => $ticket->estado_morfeus,
             'logistic_status' => 'pending',
             'local_ticket' => [
@@ -261,6 +252,24 @@ class MorfeusTicketService
             'items_count' => $ticket->items_count ?? null,
             'pending_items_count' => $ticket->pending_items_count ?? null,
             'pending_quantity' => $ticket->pending_quantity ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function normalizeCustomer(object $ticket): array
+    {
+        return [
+            'external_id' => $ticket->cliente_id ?? null,
+            'name' => $this->firstFilled($ticket->cliente_nombre ?? null, $ticket->cliente_catalogo_nombre ?? null),
+            'identification' => $this->firstFilled($ticket->cliente_identificacion ?? null, $ticket->cliente_catalogo_identificacion ?? null),
+            'email' => $this->firstFilled($ticket->cliente_correo ?? null, $ticket->cliente_catalogo_correo ?? null),
+            'recipient_name' => $this->firstFilled($ticket->destinatario_nombre ?? null),
+            'recipient_identification' => $this->firstFilled($ticket->destinatario_identificacion ?? null),
+            'phone' => $this->firstFilled($ticket->destinatario_telefono ?? null, $ticket->cliente_catalogo_telefono ?? null),
+            'delivery_address' => $this->firstFilled($ticket->cliente_catalogo_direccion ?? null),
+            'invoice_observation' => $this->firstFilled($ticket->observacion_factura ?? null),
         ];
     }
 

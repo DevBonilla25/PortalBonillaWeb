@@ -310,7 +310,7 @@
                                 <th>Fecha</th>
                                 <th>Bodega</th>
                                 <th>Documento origen</th>
-                                <th>Cajero</th>
+                                <th>Cliente</th>
                                 <th>Estado Morfeus</th>
                                 <th>Estado logistico</th>
                                 <th>Pendiente</th>
@@ -346,8 +346,24 @@
                                     </td>
                                     <td>{{ $ticket['source_document_id'] ?? '-' }}</td>
                                     <td>
-                                        <div>{{ $ticket['cashier']['name'] ?? '-' }}</div>
-                                        <div class="mf-muted">ID {{ $ticket['cashier']['external_id'] ?? '-' }}</div>
+                                        @php
+                                            $customerName = data_get($ticket, 'customer.name');
+                                            $customerRecipient = data_get($ticket, 'customer.recipient_name');
+                                            $customerExternalId = data_get($ticket, 'customer.external_id');
+                                            $customerIdentification = data_get($ticket, 'customer.identification');
+                                        @endphp
+                                        <div>
+                                            {{ filled($customerName) ? $customerName : (filled($customerRecipient) ? $customerRecipient : '-') }}
+                                        </div>
+                                        <div class="mf-muted">
+                                            @if (filled($customerExternalId))
+                                                ID {{ $customerExternalId }}
+                                            @elseif (filled($customerIdentification))
+                                                {{ $customerIdentification }}
+                                            @else
+                                                -
+                                            @endif
+                                        </div>
                                     </td>
                                     <td>
                                         <x-filament::badge color="gray">

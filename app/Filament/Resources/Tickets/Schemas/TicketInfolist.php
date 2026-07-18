@@ -37,13 +37,13 @@ class TicketInfolist
                         TextEntry::make('cashier.name')
                             ->label('Cajero')
                             ->placeholder('-')
-                            ->columnSpan(1),
+                            ->columnSpan(2),
                         TextEntry::make('warehouse.name')
                             ->label('Bodega')
                             ->placeholder('-')
                             ->badge()
                             ->color('gray')
-                            ->columnSpan(2),
+                            ->columnSpan(1),
                         TextEntry::make('branch.name')
                             ->label('Sucursal')
                             ->placeholder('-'),
