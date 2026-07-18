@@ -27,6 +27,8 @@ class MorfeusTicketRepository
             ->table('Ven_CabDespachos as d')
             ->leftJoin('Inv_Bodega as b', 'b.eCodigo', '=', 'd.eBodega')
             ->leftJoin('Usuario as u', 'u.Codigo', '=', 'd.eUsuario')
+            ->leftJoin('Ven_CabFactura as f', 'f.eIdDoc', '=', 'd.eIdFactura')
+            ->leftJoin('Ven_Cliente as c', 'c.eCodigo', '=', 'f.eCliente')
             ->select([
                 'd.eCodigo as despacho_id',
                 'd.fFecha as fecha_despacho',
@@ -38,6 +40,18 @@ class MorfeusTicketRepository
                 'd.eUsuario as usuario_id',
                 'u.Nombre as usuario',
                 'd.aEstado as estado_morfeus',
+                'f.eCliente as cliente_id',
+                'f.aClienteNombre as cliente_nombre',
+                'f.aCedRucCliente as cliente_identificacion',
+                'f.aCorreoClte as cliente_correo',
+                'f.aNombreDestinatario as destinatario_nombre',
+                'f.aCedRucDestinatario as destinatario_identificacion',
+                'f.aTelefonoDestinatario as destinatario_telefono',
+                'c.aNombre as cliente_catalogo_nombre',
+                'c.aCedRuc as cliente_catalogo_identificacion',
+                'c.aDireccion as cliente_catalogo_direccion',
+                'c.aTelefono as cliente_catalogo_telefono',
+                'c.aCorreo as cliente_catalogo_correo',
             ]);
 
         return $query
@@ -243,6 +257,8 @@ class MorfeusTicketRepository
             ->table('Ven_CabDespachos as d')
             ->leftJoin('Inv_Bodega as b', 'b.eCodigo', '=', 'd.eBodega')
             ->leftJoin('Usuario as u', 'u.Codigo', '=', 'd.eUsuario')
+            ->leftJoin('Ven_CabFactura as f', 'f.eIdDoc', '=', 'd.eIdFactura')
+            ->leftJoin('Ven_Cliente as c', 'c.eCodigo', '=', 'f.eCliente')
             ->select([
                 'd.eCodigo as despacho_id',
                 'd.fFecha as fecha_despacho',
@@ -254,6 +270,18 @@ class MorfeusTicketRepository
                 'd.eUsuario as usuario_id',
                 'u.Nombre as usuario',
                 'd.aEstado as estado_morfeus',
+                'f.eCliente as cliente_id',
+                'f.aClienteNombre as cliente_nombre',
+                'f.aCedRucCliente as cliente_identificacion',
+                'f.aCorreoClte as cliente_correo',
+                'f.aNombreDestinatario as destinatario_nombre',
+                'f.aCedRucDestinatario as destinatario_identificacion',
+                'f.aTelefonoDestinatario as destinatario_telefono',
+                'c.aNombre as cliente_catalogo_nombre',
+                'c.aCedRuc as cliente_catalogo_identificacion',
+                'c.aDireccion as cliente_catalogo_direccion',
+                'c.aTelefono as cliente_catalogo_telefono',
+                'c.aCorreo as cliente_catalogo_correo',
             ])
             ->where('d.eUsuario', $morfeusUserId)
             ->where('d.eCodigo', $externalDispatchId)

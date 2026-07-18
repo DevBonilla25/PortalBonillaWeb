@@ -62,6 +62,24 @@ class TicketsTable
                     ->label('Cliente')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('status')
+                    ->label('Estado')
+                    ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
+                    ->color(fn (TicketStatus $state): string => static::statusColor($state))
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('updated_at')
+                    ->label('Últ. act.')
+                    ->formatStateUsing(fn ($state): string => static::formatLastActivity($state))
+                    ->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
+                    ->sortable(),
+                TextColumn::make('cashier.name')
+                    ->label('Cajero')
+                    ->placeholder('-')
+                    ->sortable(),
+                TextColumn::make('currentDriver.user.name')
+                    ->label('Chofer')
+                    ->placeholder('-'),
                 TextColumn::make('delivery_address')
                     ->label('Dirección')
                     ->limit(40)
@@ -71,22 +89,9 @@ class TicketsTable
                     ->label('Zona')
                     ->placeholder('-')
                     ->sortable(),
-                TextColumn::make('currentDriver.user.name')
-                    ->label('Chofer')
-                    ->placeholder('-'),
-                TextColumn::make('status')
-                    ->label('Estado')
-                    ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
-                    ->color(fn (TicketStatus $state): string => static::statusColor($state))
-                    ->badge()
-                    ->sortable(),
                 TextColumn::make('latestAssignment.warehouseUser.name')
                     ->label('Bodeguero')
                     ->placeholder('-'),
-                TextColumn::make('cashier.name')
-                    ->label('Cajero')
-                    ->placeholder('-')
-                    ->sortable(),
                 TextColumn::make('priority')
                     ->label('Prioridad')
                     ->formatStateUsing(fn (TicketPriority $state): string => match ($state) {
@@ -98,11 +103,6 @@ class TicketsTable
                         TicketPriority::Normal => 'warning',
                         TicketPriority::Low => 'gray',
                     })
-                    ->sortable(),
-                TextColumn::make('updated_at')
-                    ->label('Últ. act.')
-                    ->formatStateUsing(fn ($state): string => static::formatLastActivity($state))
-                    ->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
             ])
             ->defaultSort('updated_at', 'desc')
