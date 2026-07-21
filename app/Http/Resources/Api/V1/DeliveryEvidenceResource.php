@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Http\Resources\Api\V1;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+
+class DeliveryEvidenceResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        $mediaDisk = config('filesystems.logistics_media_disk', 'public');
+
+        return [
+            'id' => $this->id,
+            'ticket_id' => $this->ticket_id,
+            'driver_id' => $this->driver_id,
+            'received_by_name' => $this->received_by_name,
+            'received_by_identification' => $this->received_by_identification,
+            'photo_url' => $this->photo_path ? Storage::disk($mediaDisk)->url($this->photo_path) : null,
+            'photos' => MediaAttachmentResource::collection($this->whenLoaded('mediaAttachments')),
+            'signature_url' => $this->signature_path ? Storage::disk($mediaDisk)->url($this->signature_path) : null,
+            'observation' => $this->observation,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'accuracy' => $this->accuracy,
+            'occurred_at' => $this->occurred_at?->toISOString(),
+            'ticket' => $this->whenLoaded('ticket', fn (): array => [
+                'id' => $this->ticket->id,
+                'status' => $this->ticket->status?->value,
+                'status_label' => $this->ticket->status?->label(),
+                'delivered_at' => $this->ticket->delivered_at?->toISOString(),
+                'closed_at' => $this->ticket->closed_at?->toISOString(),
+            ]),
+            'created_at' => $this->created_at?->toISOString(),
+        ];
+    }
+}

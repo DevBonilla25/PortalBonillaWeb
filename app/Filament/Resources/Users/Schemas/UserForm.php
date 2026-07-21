@@ -42,6 +42,12 @@ class UserForm
                             ->rule(Password::defaults())
                             ->dehydrated(fn (?string $state): bool => filled($state))
                             ->required(fn (string $operation): bool => $operation === 'create'),
+                        TextInput::make('password_confirmation')
+                            ->label('Confirmar contraseña')
+                            ->password()
+                            ->revealable()
+                            ->dehydrated(false)
+                            ->required(fn (string $operation): bool => $operation === 'create'),
                         TextInput::make('phone')
                             ->label('Teléfono')
                             ->tel()
@@ -114,6 +120,12 @@ class UserForm
                                     $set('phone', $employee->phone);
                                 }
                             }),
+                        TextInput::make('morfeus_user_id')
+                            ->label('Usuario Morfeus')
+                            ->helperText('Codigo del cajero en Morfeus: Usuario.Codigo.')
+                            ->numeric()
+                            ->minValue(1)
+                            ->nullable(),
                     ]),
                 Section::make('Roles y permisos')
                     ->schema([

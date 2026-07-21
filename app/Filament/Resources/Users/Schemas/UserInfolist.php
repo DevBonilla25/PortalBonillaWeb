@@ -40,6 +40,9 @@ class UserInfolist
                         TextEntry::make('employee.display_name')
                             ->label('Empleado vinculado')
                             ->placeholder('—'),
+                        TextEntry::make('morfeus_user_id')
+                            ->label('Usuario Morfeus')
+                            ->placeholder('-'),
                     ]),
                 Section::make('Acceso')
                     ->schema([

@@ -64,6 +64,11 @@ class Employee extends Model
         return $this->hasOne(User::class);
     }
 
+    public function driverProfile(): HasOne
+    {
+        return $this->hasOne(DriverProfile::class);
+    }
+
     public function getDisplayNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->last_name}");

@@ -34,6 +34,21 @@ class Company extends Model
         return $this->hasMany(Warehouse::class);
     }
 
+    public function zones(): HasMany
+    {
+        return $this->hasMany(Zone::class);
+    }
+
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
     public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class);

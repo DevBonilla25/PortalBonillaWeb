@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    'morfeus' => [
+        'pending_warehouse_ids' => array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('MORFEUS_PENDING_WAREHOUSE_IDS', '')),
+        ))),
+    ],
+
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'credentials_path' => env('FIREBASE_CREDENTIALS_PATH'),
+        'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
+    ],
+
 ];

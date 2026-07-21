@@ -41,4 +41,9 @@ class Branch extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
 }
