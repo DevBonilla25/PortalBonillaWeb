@@ -8,6 +8,11 @@ use App\Http\Controllers\Api\V1\Driver\DriverNotificationController;
 use App\Http\Controllers\Api\V1\Driver\DriverTicketController;
 use App\Http\Controllers\Api\V1\Driver\NoveltyReasonController;
 use App\Http\Controllers\Api\V1\Driver\TicketNoveltyController;
+use App\Http\Controllers\Api\V1\LogisticOperationController;
+use App\Http\Controllers\Api\V1\OperationAttachmentController;
+use App\Http\Controllers\Api\V1\OperationIncidentController;
+use App\Http\Controllers\Api\V1\OperationStopController;
+use App\Http\Controllers\Api\V1\SubzoneController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -27,5 +32,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('driver/tickets/{ticket}/evidence', [DeliveryEvidenceController::class, 'store']);
         Route::post('driver/tickets/{ticket}/novelties', [TicketNoveltyController::class, 'store']);
         Route::post('driver/location', [DriverLocationController::class, 'store']);
+
+        Route::apiResource('subzones', SubzoneController::class)->except('show');
+        Route::apiResource('logistic-operations', LogisticOperationController::class)->except('destroy');
+        Route::post('logistic-operations/{logisticOperation}/transition', [LogisticOperationController::class, 'transition']);
+        Route::post('logistic-operations/{logisticOperation}/incidents', [OperationIncidentController::class, 'store']);
+        Route::post('logistic-operations/{logisticOperation}/attachments', [OperationAttachmentController::class, 'store']);
+        Route::post('logistic-operations/{logisticOperation}/stops', [OperationStopController::class, 'store']);
+        Route::post('logistic-operations/{logisticOperation}/stops/{stop}/finish', [OperationStopController::class, 'finish']);
     });
 });

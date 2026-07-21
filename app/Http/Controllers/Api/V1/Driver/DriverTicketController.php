@@ -64,6 +64,7 @@ class DriverTicketController extends Controller
 
         return DriverTicketResource::make($ticket->load([
             'zone',
+            'subzone',
             'warehouse',
             'currentVehicle',
             'items',

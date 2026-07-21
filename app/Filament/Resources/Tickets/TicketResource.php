@@ -22,6 +22,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class TicketResource extends Resource
 {
@@ -54,6 +56,34 @@ class TicketResource extends Resource
     public static function table(Table $table): Table
     {
         return TicketsTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        if (! $user || $user->hasAnyRole(['super_admin', 'admin', 'supervisor'])) {
+            return $query;
+        }
+
+        if ($user->hasAnyRole(['warehouse_operator', 'warehouse_assistant'])) {
+            $warehouseId = $user->employee?->warehouse_id;
+
+            return $warehouseId
+                ? $query->where('warehouse_id', $warehouseId)
+                : $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('cashier')) {
+            return $query->where('cashier_id', $user->id);
+        }
+
+        if ($user->hasAnyRole(['driver', 'chofer_externo'])) {
+            return $query->where('current_driver_id', $user->driverProfile?->id ?? 0);
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     public static function getRelations(): array

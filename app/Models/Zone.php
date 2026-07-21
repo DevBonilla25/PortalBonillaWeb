@@ -60,4 +60,9 @@ class Zone extends Model
     {
         return $this->hasMany(Ticket::class);
     }
+
+    public function subzones(): HasMany
+    {
+        return $this->hasMany(Subzone::class);
+    }
 }

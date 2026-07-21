@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Tickets\Schemas;
 
+use App\Enums\DeliveryType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Models\Company;
 use App\Models\Contact;
+use App\Models\Subzone;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -46,7 +48,9 @@ class TicketForm
                             ->maxLength(100)
                             ->unique(
                                 ignoreRecord: true,
-                                modifyRuleUsing: fn ($rule, Get $get) => $rule->where('company_id', $get('company_id')),
+                                modifyRuleUsing: fn ($rule, Get $get) => $rule
+                                    ->where('company_id', $get('company_id'))
+                                    ->where('warehouse_id', $get('warehouse_id')),
                             )
                             ->dehydrateStateUsing(fn (?string $state): ?string => $state ? strtoupper($state) : null),
                         TextInput::make('guide_number')
@@ -87,14 +91,39 @@ class TicketForm
                             )
                             ->searchable()
                             ->preload()
-                            ->required(),
-                        /** 
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('subzone_id', null)),
+                        Select::make('delivery_type')
+                            ->label('Tipo de entrega')
+                            ->options([
+                                DeliveryType::Internal->value => 'Interna / local',
+                                DeliveryType::Distribution->value => 'Distribucion',
+                            ])
+                            ->default(DeliveryType::Internal->value)
+                            ->required()
+                            ->live(),
+                        Select::make('subzone_id')
+                            ->label('Subzona')
+                            ->options(fn (Get $get): array => filled($get('zone_id'))
+                                ? Subzone::query()
+                                    ->where('zone_id', $get('zone_id'))
+                                    ->where('is_active', true)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all()
+                                : [])
+                            ->searchable()
+                            ->nullable()
+                            ->disabled(fn (Get $get): bool => blank($get('zone_id')))
+                            ->visible(fn (Get $get): bool => $get('delivery_type') === DeliveryType::Distribution->value),
+                        /**
                         Select::make('priority')
                             ->label('Prioridad')
                             ->options(TicketPriority::class)
                             ->nullable()
                             ->default(TicketPriority::Normal->value),
-                        */
+                         */
                         Select::make('status')
                             ->label('Estado')
                             ->options(TicketStatus::class)
@@ -171,6 +200,12 @@ class TicketForm
                         Textarea::make('delivery_reference')
                             ->label('Referencia y Observaciones')
                             ->columnSpan(5),
+                        TextInput::make('google_maps_url')
+                            ->label('Link de Google Maps')
+                            ->url()
+                            ->maxLength(2048)
+                            ->columnSpan(5)
+                            ->visible(fn (Get $get): bool => $get('delivery_type') === DeliveryType::Distribution->value),
                     ]),
                 Section::make('Productos')
                     ->columnSpanFull()

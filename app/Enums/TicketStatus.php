@@ -43,18 +43,17 @@ enum TicketStatus: string
     public function allowedNextStatuses(): array
     {
         return match ($this) {
-            self::Created => [self::SentToWarehouse, self::Cancelled],
-            self::SentToWarehouse => [self::Picking, self::Cancelled],
-            self::AssignedToWarehouse => [self::Picking, self::Loading, self::Cancelled],
-            self::Picking => [self::Loading, self::DeliveryFailed, self::Cancelled],
+            self::Created => [self::SentToWarehouse],
+            self::SentToWarehouse => [self::Picking],
+            self::AssignedToWarehouse => [self::Picking, self::Loading],
+            self::Picking => [self::Loading, self::DeliveryFailed],
             self::Loading => [self::Loaded, self::DeliveryFailed],
-            self::Loaded => [self::Dispatched, self::Cancelled],
+            self::Loaded => [self::Dispatched],
             self::Dispatched => [self::InRoute],
             self::InRoute => [self::Delivered, self::DeliveryFailed],
             self::Delivered, self::DeliveryFailed => [self::Returning],
             self::Returning => [self::ArrivedBack],
-            self::ArrivedBack => [],
-            self::Cancelled => [self::SentToWarehouse],
+            self::ArrivedBack, self::Cancelled => [],
         };
     }
 

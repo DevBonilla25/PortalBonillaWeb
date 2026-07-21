@@ -21,6 +21,7 @@ class ViewTicket extends ViewRecord
     {
         return [
             TicketRecordActions::sendToWarehouse(),
+            TicketRecordActions::rescheduleTicket(),
             TicketRecordActions::cancelTicket(),
             EditAction::make()
                 ->label('Editar'),
