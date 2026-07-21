@@ -24,6 +24,12 @@ class DriverTicketResource extends JsonResource
             'customer_phone_2' => $this->customer_phone_2,
             'delivery_address' => $this->delivery_address,
             'delivery_reference' => $this->delivery_reference,
+            'delivery_type' => $this->delivery_type?->value,
+            'google_maps_url' => $this->google_maps_url,
+            'is_rescheduled' => $this->rescheduled_count > 0,
+            'rescheduled_count' => $this->rescheduled_count,
+            'last_rescheduled_at' => $this->last_rescheduled_at?->toISOString(),
+            'reschedule_reason' => $this->reschedule_reason,
             'priority' => $this->priority?->value,
             'priority_label' => $this->priority?->label(),
             'status' => $this->status?->value,
@@ -39,6 +45,10 @@ class DriverTicketResource extends JsonResource
                 'id' => $this->zone->id,
                 'name' => $this->zone->name,
                 'code' => $this->zone->code,
+            ] : null),
+            'subzone' => $this->whenLoaded('subzone', fn (): ?array => $this->subzone ? [
+                'id' => $this->subzone->id,
+                'name' => $this->subzone->name,
             ] : null),
             'warehouse' => $this->whenLoaded('warehouse', fn (): ?array => $this->warehouse ? [
                 'id' => $this->warehouse->id,

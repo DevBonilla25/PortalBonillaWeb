@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeliveryType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'warehouse_id',
     'contact_id',
     'zone_id',
+    'delivery_type',
+    'subzone_id',
     'cashier_id',
     'current_driver_id',
     'current_vehicle_id',
@@ -35,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'customer_phone_2',
     'delivery_address',
     'delivery_reference',
+    'google_maps_url',
     'priority',
     'status',
     'assigned_at',
@@ -42,6 +46,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'delivered_at',
     'returned_at',
     'closed_at',
+    'rescheduled_count',
+    'last_rescheduled_at',
+    'reschedule_reason',
+    'cancelled_reason',
     'observations',
 ])]
 class Ticket extends Model
@@ -58,6 +66,7 @@ class Ticket extends Model
     {
         return [
             'priority' => TicketPriority::class,
+            'delivery_type' => DeliveryType::class,
             'status' => TicketStatus::class,
             'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
@@ -65,6 +74,8 @@ class Ticket extends Model
             'delivered_at' => 'datetime',
             'returned_at' => 'datetime',
             'closed_at' => 'datetime',
+            'rescheduled_count' => 'integer',
+            'last_rescheduled_at' => 'datetime',
         ];
     }
 
@@ -91,6 +102,11 @@ class Ticket extends Model
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    public function subzone(): BelongsTo
+    {
+        return $this->belongsTo(Subzone::class);
     }
 
     public function cashier(): BelongsTo

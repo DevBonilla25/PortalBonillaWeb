@@ -163,7 +163,7 @@ class WarehousePanel extends Page implements HasActions
     public function isWarehouseSelectorLocked(): bool
     {
         return app(WarehousePanelService::class)->effectiveWarehouseId(Auth::user(), null) !== null
-            && ! Auth::user()?->hasAnyRole(['super_admin', 'admin']);
+            && ! Auth::user()?->hasAnyRole(['super_admin', 'admin', 'supervisor']);
     }
 
     /**

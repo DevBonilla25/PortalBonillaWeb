@@ -49,6 +49,7 @@ class DriverTicketQueryService
             ->where('current_driver_id', $driver->id)
             ->with([
                 'zone',
+                'subzone',
                 'warehouse',
                 'currentVehicle',
             ])
@@ -67,6 +68,16 @@ class DriverTicketQueryService
 
         if ($status !== null) {
             $query->where('status', $status->value);
+        }
+
+        if (request()->filled('delivery_type')) {
+            $query->where('delivery_type', request()->string('delivery_type'));
+        }
+        if (request()->filled('zone_id')) {
+            $query->where('zone_id', request()->integer('zone_id'));
+        }
+        if (request()->filled('subzone_id')) {
+            $query->where('subzone_id', request()->integer('subzone_id'));
         }
 
         return $query;
@@ -88,8 +99,7 @@ class DriverTicketQueryService
         int $perPage = 15,
         ?string $scope = null,
         ?TicketStatus $status = null,
-    ): LengthAwarePaginator
-    {
+    ): LengthAwarePaginator {
         return $this->queryForDriver($driver, $scope, $status)->paginate($perPage);
     }
 
@@ -99,6 +109,7 @@ class DriverTicketQueryService
 
         return $ticket->load([
             'zone',
+            'subzone',
             'warehouse',
             'currentVehicle',
             'items',

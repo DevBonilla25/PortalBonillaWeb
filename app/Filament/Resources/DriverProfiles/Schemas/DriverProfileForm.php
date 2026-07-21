@@ -27,7 +27,7 @@ class DriverProfileForm
                                 'name',
                                 fn ($query) => $query
                                     ->where('is_active', true)
-                                    ->role('driver'),
+                                    ->role(['driver', 'chofer_externo']),
                             )
                             ->searchable()
                             ->preload()

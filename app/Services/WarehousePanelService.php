@@ -19,7 +19,7 @@ class WarehousePanelService
 
     private const DISPATCHED_LIMIT = 20;
 
-    private const ADMIN_ROLES = ['super_admin', 'admin'];
+    private const ADMIN_ROLES = ['super_admin', 'admin', 'supervisor'];
 
     private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator'];
 

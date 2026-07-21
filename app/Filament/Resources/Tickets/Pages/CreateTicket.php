@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Tickets\Pages;
 
 use App\Actions\Tickets\AttachTicketDocumentAction;
+use App\Enums\DeliveryType;
 use App\Enums\TicketDocumentType;
 use App\Enums\TicketEventType;
 use App\Filament\Resources\Tickets\TicketResource;
@@ -157,7 +158,10 @@ class CreateTicket extends CreateRecord
             return;
         }
 
-        $this->form->fill($payload['form_data']);
+        $this->form->fill([
+            ...$payload['form_data'],
+            'delivery_type' => $payload['form_data']['delivery_type'] ?? DeliveryType::Internal->value,
+        ]);
     }
 
     /**

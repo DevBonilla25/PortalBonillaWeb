@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\Tickets\Tables;
 
+use App\Enums\DeliveryType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\DriverProfile;
+use App\Models\Warehouse;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
@@ -24,7 +27,7 @@ class TicketsTable
 {
     private const DISPLAY_TIMEZONE = 'America/Guayaquil';
 
-    private const ADMIN_ROLES = ['super_admin', 'admin'];
+    private const ADMIN_ROLES = ['super_admin', 'admin', 'supervisor'];
 
     private const CASHIER_ROLES = ['cashier'];
 
@@ -39,6 +42,7 @@ class TicketsTable
                 return $query
                     ->with([
                         'zone',
+                        'subzone',
                         'cashier',
                         'currentDriver.user',
                         'latestAssignment.warehouseUser',
@@ -51,6 +55,11 @@ class TicketsTable
                     );
             })
             ->columns([
+                TextColumn::make('updated_at')
+                    ->label('Últ. act.')
+                    ->formatStateUsing(fn ($state): string => static::formatLastActivity($state))
+                    ->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
+                    ->sortable(),
                 TextColumn::make('ticket_code')
                     ->label('N° Documento')
                     ->searchable()
@@ -68,11 +77,6 @@ class TicketsTable
                     ->color(fn (TicketStatus $state): string => static::statusColor($state))
                     ->badge()
                     ->sortable(),
-                TextColumn::make('updated_at')
-                    ->label('Últ. act.')
-                    ->formatStateUsing(fn ($state): string => static::formatLastActivity($state))
-                    ->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
-                    ->sortable(),
                 TextColumn::make('cashier.name')
                     ->label('Cajero')
                     ->placeholder('-')
@@ -80,6 +84,14 @@ class TicketsTable
                 TextColumn::make('currentDriver.user.name')
                     ->label('Chofer')
                     ->placeholder('-'),
+                TextColumn::make('rescheduled_count')
+                    ->label('Reprogramado')
+                    ->state(fn ($record): ?string => $record->rescheduled_count > 0
+                        ? ($record->rescheduled_count > 1 ? "Sí ({$record->rescheduled_count})" : 'Sí')
+                        : null)
+                    ->placeholder('-')
+                    ->badge()
+                    ->color('warning'),
                 TextColumn::make('delivery_address')
                     ->label('Dirección')
                     ->limit(40)
@@ -89,6 +101,14 @@ class TicketsTable
                     ->label('Zona')
                     ->placeholder('-')
                     ->sortable(),
+                TextColumn::make('warehouse.name')
+                    ->label('Bodega')
+                    ->placeholder('-')
+                    ->sortable(),
+                TextColumn::make('delivery_type')
+                    ->label('Tipo')
+                    ->formatStateUsing(fn ($state): string => $state === DeliveryType::Distribution ? 'Distribucion' : 'Interna')
+                    ->badge(),
                 TextColumn::make('latestAssignment.warehouseUser.name')
                     ->label('Bodeguero')
                     ->placeholder('-'),
@@ -113,12 +133,31 @@ class TicketsTable
                     ->default('sent_to_warehouse')
                     ->selectablePlaceholder(false)
                     ->query(fn (Builder $query, array $data): Builder => static::applyStatusGroupFilter($query, $data['value'] ?? 'sent_to_warehouse')),
+                SelectFilter::make('warehouse_id')
+                    ->label('Bodega')
+                    ->options(fn (): array => static::warehouseOptions())
+                    ->default(fn (): ?int => static::assignedWarehouseFilterDefault())
+                    ->placeholder('Todas')
+                    ->searchable()
+                    ->preload()
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field
+                        ->disabled(static::warehouseFilterIsLocked())
+                        ->selectablePlaceholder(! static::warehouseFilterIsLocked())
+                        ->dehydrated()),
                 SelectFilter::make('zone_id')
                     ->label('Zona')
                     ->relationship('zone', 'name')
                     ->placeholder('Todos')
                     ->searchable()
                     ->preload(),
+                /*
+                SelectFilter::make('delivery_type')
+                    ->label('Tipo')
+                    ->options([
+                        DeliveryType::Internal->value => 'Interna / local',
+                        DeliveryType::Distribution->value => 'Distribucion',
+                    ]),
+                */
                 SelectFilter::make('current_driver_id')
                     ->label('Chofer')
                     ->options(fn (): array => DriverProfile::query()
@@ -131,10 +170,12 @@ class TicketsTable
                         ->all())
                     ->placeholder('Todos')
                     ->searchable(),
+                /*
                 SelectFilter::make('priority')
                     ->label('Prioridad')
                     ->options(TicketPriority::class)
                     ->placeholder('Todos'),
+                */
                 Filter::make('date')
                     ->label('Fecha')
                     ->schema([
@@ -273,6 +314,41 @@ class TicketsTable
             TicketStatus::DeliveryFailed,
             TicketStatus::Cancelled => 'danger',
         };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function warehouseOptions(): array
+    {
+        $user = Auth::user();
+        $canSeeAllWarehouses = $user?->hasAnyRole(self::ADMIN_ROLES) ?? false;
+
+        return Warehouse::query()
+            ->when($user?->company_id, fn (Builder $query, int $companyId): Builder => $query->where('company_id', $companyId))
+            ->when(! $canSeeAllWarehouses, fn (Builder $query): Builder => $query->whereKey($user?->employee?->warehouse_id))
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    private static function assignedWarehouseFilterDefault(): ?int
+    {
+        $user = Auth::user();
+
+        if (! $user || $user->hasAnyRole(self::ADMIN_ROLES)) {
+            return null;
+        }
+
+        return $user->hasAnyRole(self::WAREHOUSE_ROLES)
+            ? $user->employee?->warehouse_id
+            : null;
+    }
+
+    private static function warehouseFilterIsLocked(): bool
+    {
+        return Auth::user()?->hasAnyRole(self::WAREHOUSE_ROLES) ?? false;
     }
 
     private static function tableDescription(int $total): HtmlString
