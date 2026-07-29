@@ -49,7 +49,7 @@ class OperationStopController extends Controller
     private function ensureVisible(Request $request, LogisticOperation $operation): void
     {
         abort_unless((int) $operation->company_id === (int) $request->user()->company_id, 404);
-        if ($request->user()->hasAnyRole(['driver', 'chofer_externo'])) {
+        if ($request->user()->hasAnyRole(['driver', 'external_driver'])) {
             abort_unless((int) $operation->driver_id === (int) $request->user()->driverProfile?->id, 404);
         }
     }

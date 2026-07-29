@@ -81,7 +81,7 @@ class LogisticOperationController extends Controller
 
     private function isDriver(Request $request): bool
     {
-        return $request->user()->hasAnyRole(['driver', 'chofer_externo']);
+        return $request->user()->hasAnyRole(['driver', 'external_driver']);
     }
 
     private function validateResourcesBelongToCompany(Request $request): void

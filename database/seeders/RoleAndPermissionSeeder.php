@@ -157,7 +157,7 @@ class RoleAndPermissionSeeder extends Seeder
                 'ViewAny:DriverProfile',
                 'View:DriverProfile',
             ],
-            'chofer_externo' => [
+            'external_driver' => [
                 'ViewAny:Vehicle',
                 'View:Vehicle',
             ],

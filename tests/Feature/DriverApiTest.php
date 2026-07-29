@@ -91,8 +91,8 @@ it('logs in a driver and returns a sanctum token', function () {
 
 it('logs in an external driver with an active driver profile', function () {
     [$user] = driverApiFixtures();
-    Role::query()->firstOrCreate(['name' => 'chofer_externo', 'guard_name' => 'web']);
-    $user->syncRoles(['chofer_externo']);
+    Role::query()->firstOrCreate(['name' => 'external_driver', 'guard_name' => 'web']);
+    $user->syncRoles(['external_driver']);
 
     $this->postJson('/api/v1/auth/login', [
         'email' => 'driver@example.test',
@@ -100,7 +100,7 @@ it('logs in an external driver with an active driver profile', function () {
         'device_name' => 'App abastecimiento',
     ])
         ->assertOk()
-        ->assertJsonPath('user.roles.0', 'chofer_externo')
+        ->assertJsonPath('user.roles.0', 'external_driver')
         ->assertJsonPath('user.driver_profile.id', $user->driverProfile->id);
 });
 
