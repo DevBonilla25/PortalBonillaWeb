@@ -23,7 +23,7 @@ class SubzoneController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_if($request->user()->hasAnyRole(['driver', 'chofer_externo']), 403);
+        abort_if($request->user()->hasAnyRole(['driver', 'external_driver']), 403);
         $data = $this->validateData($request);
         $this->ensureZone($request, $data['zone_id']);
 
@@ -32,7 +32,7 @@ class SubzoneController extends Controller
 
     public function update(Request $request, Subzone $subzone): JsonResponse
     {
-        abort_if($request->user()->hasAnyRole(['driver', 'chofer_externo']), 403);
+        abort_if($request->user()->hasAnyRole(['driver', 'external_driver']), 403);
         $this->ensureZone($request, $subzone->zone_id);
         $data = $this->validateData($request, $subzone);
         $this->ensureZone($request, $data['zone_id']);
@@ -43,7 +43,7 @@ class SubzoneController extends Controller
 
     public function destroy(Request $request, Subzone $subzone): JsonResponse
     {
-        abort_if($request->user()->hasAnyRole(['driver', 'chofer_externo']), 403);
+        abort_if($request->user()->hasAnyRole(['driver', 'external_driver']), 403);
         $this->ensureZone($request, $subzone->zone_id);
         $subzone->update(['is_active' => false]);
 

@@ -79,7 +79,7 @@ class TicketResource extends Resource
             return $query->where('cashier_id', $user->id);
         }
 
-        if ($user->hasAnyRole(['driver', 'chofer_externo'])) {
+        if ($user->hasAnyRole(['driver', 'external_driver'])) {
             return $query->where('current_driver_id', $user->driverProfile?->id ?? 0);
         }
 

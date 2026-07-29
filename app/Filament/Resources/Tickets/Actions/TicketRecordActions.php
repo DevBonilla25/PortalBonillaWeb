@@ -346,6 +346,6 @@ class TicketRecordActions
 
         return $user !== null
             && $user->can('Update:Ticket')
-            && ! $user->hasAnyRole(['driver', 'chofer_externo']);
+            && ! $user->hasAnyRole(['driver', 'external_driver']);
     }
 }

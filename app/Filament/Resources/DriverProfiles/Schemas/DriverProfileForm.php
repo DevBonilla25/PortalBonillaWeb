@@ -27,10 +27,12 @@ class DriverProfileForm
                                 'name',
                                 fn ($query) => $query
                                     ->where('is_active', true)
-                                    ->role(['driver', 'chofer_externo']),
+                                    ->whereHas(
+                                        'roles',
+                                        fn ($roles) => $roles->whereIn('name', ['driver', 'external_driver']),
+                                    ),
                             )
                             ->searchable()
-                            ->preload()
                             ->required()
                             ->unique(ignoreRecord: true),
                         Select::make('employee_id')
@@ -38,14 +40,12 @@ class DriverProfileForm
                             ->relationship('employee', 'first_name')
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->display_name)
                             ->searchable(['first_name', 'last_name', 'identification_number'])
-                            ->preload()
                             ->nullable()
                             ->unique(ignoreRecord: true),
                         Select::make('default_vehicle_id')
                             ->label('Vehiculo predeterminado')
                             ->relationship('defaultVehicle', 'plate')
                             ->searchable(['plate', 'code', 'brand', 'model'])
-                            ->preload()
                             ->nullable(),
                         Select::make('status')
                             ->label('Estado')

@@ -34,7 +34,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! $user->hasAnyRole(['driver', 'chofer_externo'])) {
+        if (! $user->hasAnyRole(['driver', 'external_driver'])) {
             throw ValidationException::withMessages([
                 'email' => 'El usuario no tiene un rol de chofer autorizado.',
             ]);

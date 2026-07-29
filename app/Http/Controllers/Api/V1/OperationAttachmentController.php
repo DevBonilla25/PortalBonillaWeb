@@ -13,7 +13,7 @@ class OperationAttachmentController extends Controller
     public function store(Request $request, LogisticOperation $logisticOperation): JsonResponse
     {
         abort_unless((int) $logisticOperation->company_id === (int) $request->user()->company_id, 404);
-        if ($request->user()->hasAnyRole(['driver', 'chofer_externo'])) {
+        if ($request->user()->hasAnyRole(['driver', 'external_driver'])) {
             abort_unless((int) $logisticOperation->driver_id === (int) $request->user()->driverProfile?->id, 404);
         }
         $data = $request->validate(['file' => ['required', 'file', 'max:10240'], 'collection' => ['nullable', 'in:guide,evidence,document,plant_exit_document']]);
