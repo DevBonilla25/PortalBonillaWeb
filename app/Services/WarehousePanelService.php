@@ -35,6 +35,7 @@ class WarehousePanelService
             ->merge([
                 TicketStatus::AssignedToWarehouse,
                 TicketStatus::Loaded,
+                TicketStatus::PendingReassignment,
             ])
             ->unique()
             ->values()
@@ -339,6 +340,7 @@ class WarehousePanelService
                 TicketStatus::AssignedToWarehouse,
                 TicketStatus::Loading,
                 TicketStatus::Loaded,
+                TicketStatus::PendingReassignment,
             ])
             ->where(function (Builder $query) use ($user): void {
                 $query

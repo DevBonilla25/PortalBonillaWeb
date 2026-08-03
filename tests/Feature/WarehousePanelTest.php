@@ -118,7 +118,6 @@ it('requires checklist before dispatch when loading has items', function () {
     expect($service->nextAdvanceStatus($ticket))->toBeNull()
         ->and($service->canReviewLoadingChecklist($ticket))->toBeTrue();
 });
-
 it('allows warehouse operators to access the warehouse panel page', function () {
     $user = User::factory()->create();
 

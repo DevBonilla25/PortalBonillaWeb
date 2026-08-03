@@ -13,7 +13,14 @@ class DriverTicketResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $allowedNextStatuses = collect($this->status?->allowedNextStatuses() ?? []);
+        $allowedNextStatuses = collect($this->status?->allowedNextStatuses() ?? [])
+            ->reject(fn (TicketStatus $status): bool => in_array($status, [
+                TicketStatus::Dispatched,
+                TicketStatus::Delivered,
+                TicketStatus::DeliveryFailed,
+                TicketStatus::Returning,
+                TicketStatus::ArrivedBack,
+            ], true));
 
         return [
             'id' => $this->id,
@@ -67,8 +74,11 @@ class DriverTicketResource extends JsonResource
             'novelties' => TicketNoveltyResource::collection($this->whenLoaded('novelties')),
             'assigned_at' => $this->assigned_at?->toISOString(),
             'dispatched_at' => $this->dispatched_at?->toISOString(),
+            'arrived_destination_at' => $this->arrived_destination_at?->toISOString(),
+            'unloading_at' => $this->unloading_at?->toISOString(),
             'delivered_at' => $this->delivered_at?->toISOString(),
             'returned_at' => $this->returned_at?->toISOString(),
+            'warehouse_received_at' => $this->warehouse_received_at?->toISOString(),
             'closed_at' => $this->closed_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
@@ -82,11 +92,14 @@ class DriverTicketResource extends JsonResource
             TicketStatus::Loading,
             TicketStatus::Loaded,
             TicketStatus::Dispatched => 'assigned',
-            TicketStatus::InRoute => 'in_route',
+            TicketStatus::InRoute,
+            TicketStatus::AtDestination,
+            TicketStatus::Unloading => 'in_route',
             TicketStatus::DeliveryFailed,
             TicketStatus::Returning => 'issue',
             TicketStatus::Delivered,
             TicketStatus::ArrivedBack,
+            TicketStatus::PendingReassignment,
             TicketStatus::Cancelled => 'history',
             default => 'other',
         };

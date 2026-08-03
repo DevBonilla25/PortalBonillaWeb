@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
+use App\Actions\Tickets\PrepareTicketReassignmentAction;
+use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
 use App\Enums\TicketStatus;
 use App\Filament\Concerns\HasLogisticsNavigation;
@@ -496,6 +498,52 @@ class WarehousePanel extends Page implements HasActions
             });
     }
 
+    public function receiveReturnAction(): Action
+    {
+        return Action::make('receiveReturn')
+            ->label('Recibir retorno')
+            ->icon(Heroicon::OutlinedArrowDownTray)
+            ->color('warning')
+            ->size('sm')
+            ->modalHeading('Confirmar recepción en bodega')
+            ->modalSubmitActionLabel('Confirmar recepción')
+            ->modalCancelActionLabel('Cancelar')
+            ->form([Textarea::make('observation')->label('Resultado de la verificación')->maxLength(1500)])
+            ->action(function (array $arguments, array $data): void {
+                $ticket = Ticket::query()->findOrFail($arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null);
+                try {
+                    app(ReceiveTicketReturnAction::class)->execute($ticket, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Retorno recibido en bodega')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo recibir el retorno')->body($exception->getMessage())->danger()->send();
+                }
+            });
+    }
+
+    public function prepareReassignmentAction(): Action
+    {
+        return Action::make('prepareReassignment')
+            ->label('Habilitar reasignación')
+            ->icon(Heroicon::OutlinedArrowPathRoundedSquare)
+            ->color('primary')
+            ->size('sm')
+            ->requiresConfirmation()
+            ->modalHeading('Habilitar nueva asignación')
+            ->modalDescription('Se cerrará la asignación anterior y el ticket quedará disponible para otro chofer y vehículo.')
+            ->modalSubmitActionLabel('Confirmar')
+            ->modalCancelActionLabel('Cancelar')
+            ->form([Textarea::make('observation')->label('Observación')->maxLength(1500)])
+            ->action(function (array $arguments, array $data): void {
+                $ticket = Ticket::query()->findOrFail($arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null);
+                try {
+                    app(PrepareTicketReassignmentAction::class)->execute($ticket, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Ticket disponible para reasignar')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo habilitar la reasignación')->body($exception->getMessage())->danger()->send();
+                }
+            });
+    }
+
     public function assignTicketButtonHtml(int $ticketId): string
     {
         return ($this->assignTicketAction())(['ticket' => $ticketId])
@@ -533,6 +581,26 @@ class WarehousePanel extends Page implements HasActions
      *     internal_observation: string|null,
      * }
      */
+    public function receiveReturnButtonHtml(int $ticketId): string
+    {
+        return ($this->receiveReturnAction())(['ticket' => $ticketId])->livewire($this)->toHtml();
+    }
+
+    public function prepareReassignmentButtonHtml(int $ticketId): string
+    {
+        return ($this->prepareReassignmentAction())(['ticket' => $ticketId])->livewire($this)->toHtml();
+    }
+
+    public function canReceiveReturn(Ticket $ticket): bool
+    {
+        return (bool) Auth::user()?->can('Update:Ticket') && $ticket->status === TicketStatus::Returning;
+    }
+
+    public function canPrepareReassignment(Ticket $ticket): bool
+    {
+        return (bool) Auth::user()?->can('Update:Ticket') && $ticket->status === TicketStatus::ArrivedBack;
+    }
+
     private function assignmentDefaultState(Ticket $ticket): array
     {
         $state = TicketAssignmentForm::defaultState($ticket);
