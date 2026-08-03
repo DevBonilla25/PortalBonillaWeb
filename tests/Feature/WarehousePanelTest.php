@@ -55,6 +55,34 @@ it('groups warehouse tickets into kanban columns', function () {
         ->and($grouped->get('loading'))->toHaveCount(0);
 });
 
+it('groups every return stage into a single returns column', function () {
+    $company = Company::query()->create([
+        'name' => 'Empresa Retornos',
+        'ruc' => '1799999999010',
+        'is_active' => true,
+    ]);
+
+    foreach ([
+        TicketStatus::DeliveryFailed,
+        TicketStatus::Returning,
+        TicketStatus::ArrivedBack,
+        TicketStatus::PendingReassignment,
+    ] as $index => $status) {
+        Ticket::query()->create([
+            'company_id' => $company->id,
+            'ticket_code' => 'RET-'.($index + 1),
+            'customer_name' => 'Cliente retorno',
+            'delivery_address' => 'Bodega',
+            'status' => $status,
+        ]);
+    }
+
+    $grouped = app(WarehousePanelService::class)->ticketsByColumn();
+
+    expect($grouped)->not->toHaveKey('reassignment')
+        ->and($grouped->get('returns'))->toHaveCount(4);
+});
+
 it('does not advance from sent to warehouse without assignment', function () {
     $company = Company::query()->create([
         'name' => 'Empresa Demo',

@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum TicketEventType: string
 {
+    case MorfeusInvoiceIssued = 'morfeus_invoice_issued';
     case Created = 'created';
     case SentToWarehouse = 'sent_to_warehouse';
     case ResourcesAssigned = 'resources_assigned';
@@ -21,6 +22,7 @@ enum TicketEventType: string
     public function label(): string
     {
         return match ($this) {
+            self::MorfeusInvoiceIssued => 'Factura Morfeus emitida',
             self::Created => 'Ticket creado',
             self::SentToWarehouse => 'Enviado a bodega',
             self::ResourcesAssigned => 'Recursos asignados',

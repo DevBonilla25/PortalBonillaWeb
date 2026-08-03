@@ -23,10 +23,15 @@ readonly class WarehousePanelColumn
     {
         return [
             new self(
-                key: 'reassignment',
-                label: 'Por reasignar',
-                dotColor: 'success',
-                statuses: [TicketStatus::PendingReassignment],
+                key: 'returns',
+                label: 'Devoluciones',
+                dotColor: 'danger',
+                statuses: [
+                    TicketStatus::DeliveryFailed,
+                    TicketStatus::Returning,
+                    TicketStatus::ArrivedBack,
+                    TicketStatus::PendingReassignment,
+                ],
             ),
             new self(
                 key: 'received',
@@ -51,12 +56,6 @@ readonly class WarehousePanelColumn
                 label: 'Despachados',
                 dotColor: 'primary',
                 statuses: [TicketStatus::Dispatched],
-            ),
-            new self(
-                key: 'returns',
-                label: 'Retornos',
-                dotColor: 'danger',
-                statuses: [TicketStatus::Returning, TicketStatus::ArrivedBack],
             ),
         ];
     }
