@@ -211,12 +211,38 @@ it('rejects access to a ticket assigned to another driver', function () {
         ->assertNotFound();
 });
 
+it('does not let the driver dispatch or receive a return in warehouse', function () {
+    [$user, , $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill(['status' => TicketStatus::Loaded])->save();
+
+    $this->getJson("/api/v1/driver/tickets/{$ticket->id}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data.allowed_next_statuses');
+
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
+        'status' => TicketStatus::Dispatched->value,
+    ])->assertUnprocessable();
+
+    $ticket->forceFill(['status' => TicketStatus::Returning])->save();
+
+    $this->getJson("/api/v1/driver/tickets/{$ticket->id}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data.allowed_next_statuses');
+
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
+        'status' => TicketStatus::ArrivedBack->value,
+    ])->assertUnprocessable();
+});
 it('registers delivery evidence and ticket novelties from driver api', function () {
     config(['filesystems.logistics_media_disk' => 'public']);
 
     Storage::fake('public');
     [$user, $driver, $ticket] = driverApiFixtures();
     Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill(['status' => TicketStatus::Unloading])->save();
 
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/evidence", [
         'received_by_name' => 'Receptor Demo',

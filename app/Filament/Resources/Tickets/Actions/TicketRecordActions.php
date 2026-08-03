@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Tickets\Actions;
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\CancelTicketDefinitivelyAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
+use App\Actions\Tickets\PrepareTicketReassignmentAction;
+use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Actions\Tickets\RescheduleTicketAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
 use App\Actions\Tickets\SendTicketToWarehouseAction;
@@ -138,6 +140,7 @@ class TicketRecordActions
                 TicketStatus::SentToWarehouse,
                 TicketStatus::Picking,
                 TicketStatus::AssignedToWarehouse,
+                TicketStatus::PendingReassignment,
             ], true))
             ->modalHeading(fn (Ticket $record): string => TicketAssignmentForm::hasExistingAssignment($record)
                 ? 'Actualizar asignación'
@@ -217,6 +220,44 @@ class TicketRecordActions
                         ->body($exception->getMessage())
                         ->danger()
                         ->send();
+                }
+            });
+    }
+
+    public static function receiveReturn(): Action
+    {
+        return Action::make('receiveReturn')
+            ->label('Recibir retorno')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('warning')
+            ->requiresConfirmation()
+            ->schema([Textarea::make('observation')->label('Resultado de la verificación')->maxLength(1500)])
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && $record->status === TicketStatus::Returning)
+            ->action(function (Ticket $record, array $data): void {
+                try {
+                    app(ReceiveTicketReturnAction::class)->execute($record, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Retorno recibido en bodega')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo recibir el retorno')->body($exception->getMessage())->danger()->send();
+                }
+            });
+    }
+
+    public static function prepareReassignment(): Action
+    {
+        return Action::make('prepareReassignment')
+            ->label('Habilitar reasignación')
+            ->icon('heroicon-o-arrow-path-rounded-square')
+            ->color('primary')
+            ->requiresConfirmation()
+            ->schema([Textarea::make('observation')->label('Observación')->maxLength(1500)])
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && $record->status === TicketStatus::ArrivedBack)
+            ->action(function (Ticket $record, array $data): void {
+                try {
+                    app(PrepareTicketReassignmentAction::class)->execute($record, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Ticket disponible para reasignar')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo habilitar la reasignación')->body($exception->getMessage())->danger()->send();
                 }
             });
     }

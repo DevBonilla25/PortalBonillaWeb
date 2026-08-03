@@ -12,6 +12,9 @@ enum TicketEventType: string
     case LoadingChecklistReviewed = 'loading_checklist_reviewed';
     case DeliveryEvidenceRegistered = 'delivery_evidence_registered';
     case NoveltyReported = 'novelty_reported';
+    case DeliveryFailed = 'delivery_failed';
+    case ReturnReceived = 'return_received';
+    case PendingReassignment = 'pending_reassignment';
     case LocationRecorded = 'location_recorded';
     case InternalNote = 'internal_note';
 
@@ -26,6 +29,9 @@ enum TicketEventType: string
             self::LoadingChecklistReviewed => 'Checklist de carga revisado',
             self::DeliveryEvidenceRegistered => 'Evidencia de entrega registrada',
             self::NoveltyReported => 'Novedad reportada',
+            self::DeliveryFailed => 'Entrega no realizada',
+            self::ReturnReceived => 'Retorno recibido en bodega',
+            self::PendingReassignment => 'Ticket habilitado para reasignación',
             self::LocationRecorded => 'Ubicacion registrada',
             self::InternalNote => 'Nota interna',
         };

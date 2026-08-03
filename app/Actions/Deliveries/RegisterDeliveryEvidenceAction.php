@@ -32,8 +32,8 @@ class RegisterDeliveryEvidenceAction
             ? $ticket->status
             : TicketStatus::from($ticket->status);
 
-        if ($previousStatus !== TicketStatus::Delivered && ! $previousStatus->canTransitionTo(TicketStatus::Delivered)) {
-            throw new DomainException('Solo puedes registrar evidencia cuando el ticket este listo para marcarse como entregado.');
+        if ($previousStatus !== TicketStatus::Delivered && $previousStatus !== TicketStatus::Unloading) {
+            throw new DomainException('Debes registrar la llegada y el inicio de descarga antes de confirmar la entrega.');
         }
 
         $mediaDisk = config('filesystems.logistics_media_disk', 'public');
@@ -104,6 +104,14 @@ class RegisterDeliveryEvidenceAction
                 connectionStatus: $data['connection_status'] ?? 'online',
                 localEventId: $data['local_event_id'] ?? null,
             );
+
+            $ticket->deliveryAttempts()
+                ->where('status', 'in_progress')
+                ->latest('id')
+                ->first()?->forceFill([
+                    'status' => 'delivered',
+                    'completed_at' => $occurredAt,
+                ])->save();
         }
 
         if (isset($data['latitude'], $data['longitude'])) {
