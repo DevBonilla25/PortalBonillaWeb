@@ -5,11 +5,14 @@ namespace App\Filament\Resources\Tickets\Pages;
 use App\Filament\Resources\Tickets\TicketResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 
 class ListTickets extends ListRecords
 {
     protected static string $resource = TicketResource::class;
+
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     public function getTitle(): string|Htmlable
     {
