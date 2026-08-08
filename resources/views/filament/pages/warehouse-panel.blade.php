@@ -1,6 +1,18 @@
 <x-filament-panels::page>
     @once
         <style>
+            body:has(.wh-panel-filters) .fi-main {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+            }
+
+            @media (min-width: 1024px) {
+                body:has(.wh-panel-filters) .fi-main {
+                    padding-left: 0rem !important;
+                    padding-right: 0rem !important;
+                }
+            }
+
             .wh-panel-filters {
                 display: grid;
                 grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr) auto;
