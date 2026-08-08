@@ -75,6 +75,8 @@ class WarehousePanel extends Page implements HasActions
 
     public ?int $lastNotifiedLoadedEventId = null;
 
+    public ?int $lastNotifiedSentToWarehouseEventId = null;
+
     public function getHeading(): string|Htmlable
     {
         return 'Panel de bodega';
@@ -104,7 +106,7 @@ class WarehousePanel extends Page implements HasActions
         $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
             ?? array_key_first($service->warehouseOptions($user));
 
-        $this->resetLoadedTicketNotificationCursor();
+        $this->resetWarehouseNotificationCursors();
     }
 
     /**
@@ -183,11 +185,12 @@ class WarehousePanel extends Page implements HasActions
 
     public function updatedWarehouseId(): void
     {
-        $this->resetLoadedTicketNotificationCursor();
+        $this->resetWarehouseNotificationCursors();
     }
 
     public function pollWarehousePanel(): void
     {
+        $this->notifyNewSentToWarehouseTickets();
         $this->notifyNewLoadedTickets();
     }
 
@@ -661,10 +664,60 @@ class WarehousePanel extends Page implements HasActions
         return TicketResource::getUrl('view', ['record' => $ticket]);
     }
 
+    private function resetWarehouseNotificationCursors(): void
+    {
+        $this->resetSentToWarehouseTicketNotificationCursor();
+        $this->resetLoadedTicketNotificationCursor();
+    }
+
     private function resetLoadedTicketNotificationCursor(): void
     {
         $this->lastNotifiedLoadedEventId = app(WarehousePanelService::class)
             ->latestLoadedStatusEventIdForPanel(Auth::user(), $this->warehouseId);
+    }
+
+    private function resetSentToWarehouseTicketNotificationCursor(): void
+    {
+        $this->lastNotifiedSentToWarehouseEventId = app(WarehousePanelService::class)
+            ->latestSentToWarehouseEventIdForPanel(Auth::user(), $this->warehouseId);
+    }
+
+    private function notifyNewSentToWarehouseTickets(): void
+    {
+        $service = app(WarehousePanelService::class);
+        $events = $service->sentToWarehouseEventsForPanel(
+            user: Auth::user(),
+            warehouseId: $this->warehouseId,
+            afterEventId: $this->lastNotifiedSentToWarehouseEventId,
+        );
+
+        foreach ($events as $event) {
+            $ticket = $event->ticket;
+
+            if (! $ticket) {
+                continue;
+            }
+
+            $title = 'Ticket recibido en bodega';
+            $body = "El ticket {$ticket->ticket_code} llego desde caja y esta en Recibidos.";
+
+            Notification::make()
+                ->title($title)
+                ->body($body)
+                ->duration(self::LOADED_NOTIFICATION_DURATION_MS)
+                ->info()
+                ->send();
+
+            $this->dispatch(
+                'warehouse-ticket-received',
+                ticketId: $ticket->id,
+                title: $title,
+                body: $body,
+                soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH),
+            );
+
+            $this->lastNotifiedSentToWarehouseEventId = $event->id;
+        }
     }
 
     private function notifyNewLoadedTickets(): void
@@ -685,12 +738,18 @@ class WarehousePanel extends Page implements HasActions
 
             Notification::make()
                 ->title('Ticket cargado')
-                ->body("El ticket {$ticket->ticket_code} esta listo para validacion/despacho.")
+                ->body("El ticket {$ticket->ticket_code} está listo para validación y despacho.")
                 ->duration(self::LOADED_NOTIFICATION_DURATION_MS)
                 ->success()
                 ->send();
 
-            $this->dispatch('warehouse-ticket-loaded', soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH));
+            $this->dispatch(
+                'warehouse-ticket-loaded',
+                ticketId: $ticket->id,
+                title: 'Ticket cargado',
+                body: "El ticket {$ticket->ticket_code} está listo para validación y despacho.",
+                soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH),
+            );
 
             $this->lastNotifiedLoadedEventId = $event->id;
         }
