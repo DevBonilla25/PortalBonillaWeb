@@ -3,7 +3,7 @@
         <style>
             .wh-panel-filters {
                 display: grid;
-                grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr);
+                grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr) auto;
                 gap: 0.75rem;
                 align-items: end;
                 margin-bottom: 1.5rem;
@@ -344,11 +344,12 @@
         </x-filament::section>
     @else
     <div
-        wire:poll.5s="pollWarehousePanel"
+        wire:poll.15s="pollWarehousePanel"
         x-data="{
             kanbanWidth: 0,
             syncingKanbanScroll: false,
             kanbanResizeObserver: null,
+            notificationPermission: ('Notification' in window) ? Notification.permission : 'unsupported',
             initKanbanScroll() {
                 this.$nextTick(() => {
                     this.updateKanbanWidth()
@@ -383,8 +384,30 @@
 
                 audio.play().catch(() => {})
             },
+            async enableWarehouseNotifications() {
+                if (! ('Notification' in window)) return
+
+                this.notificationPermission = await Notification.requestPermission()
+            },
+            handleWarehouseTicketLoaded(detail) {
+                this.handleWarehouseBrowserNotification(detail, 'warehouse-ticket-loaded')
+            },
+            handleWarehouseTicketReceived(detail) {
+                this.handleWarehouseBrowserNotification(detail, 'warehouse-ticket-received')
+            },
+            handleWarehouseBrowserNotification(detail, tagPrefix) {
+                this.playWarehouseNotificationSound(detail.soundUrl)
+
+                if (document.hidden && this.notificationPermission === 'granted') {
+                    new Notification(detail.title, {
+                        body: detail.body,
+                        tag: `${tagPrefix}-${detail.ticketId}`,
+                    })
+                }
+            },
         }"
-        @warehouse-ticket-loaded.window="playWarehouseNotificationSound($event.detail.soundUrl)"
+        @warehouse-ticket-loaded.window="handleWarehouseTicketLoaded($event.detail)"
+        @warehouse-ticket-received.window="handleWarehouseTicketReceived($event.detail)"
     >
         <div class="wh-panel-filters">
         <div class="wh-panel-field">
@@ -423,6 +446,16 @@
                 @endforeach
             </div>
         </div>
+        <div x-show="notificationPermission === 'default'">
+            <x-filament::icon-button
+                icon="heroicon-o-bell"
+                color="gray"
+                size="lg"
+                tooltip="Activar notificaciones"
+                aria-label="Activar notificaciones"
+                x-on:click="enableWarehouseNotifications()"
+            />
+        </div>
         </div>
 
         <div
@@ -435,10 +468,14 @@
             <div class="wh-kanban-scrollbar-track" :style="'width: ' + kanbanWidth + 'px'"></div>
         </div>
 
+        @php
+            $ticketsByColumn = $this->ticketsByColumn;
+        @endphp
+
         <div class="wh-kanban" x-ref="kanban" @scroll="scrollTopFromKanban()">
             @foreach ($this->getColumns() as $column)
             @php
-                $columnTickets = $this->ticketsByColumn->get($column->key, collect());
+                $columnTickets = $ticketsByColumn->get($column->key, collect());
                 $tickets = $this->visibleTicketsForColumn($column->key, $columnTickets);
                 $hasMore = $this->columnHasMore($column->key, $columnTickets);
             @endphp
@@ -571,3 +608,4 @@
 
     <x-filament-actions::modals />
 </x-filament-panels::page>
+
