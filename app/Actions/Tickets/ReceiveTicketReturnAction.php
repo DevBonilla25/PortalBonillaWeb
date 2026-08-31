@@ -13,7 +13,11 @@ use Illuminate\Support\Facades\DB;
 
 class ReceiveTicketReturnAction
 {
-    public function __construct(private readonly TicketWorkflowService $workflow, private readonly TicketEventService $events) {}
+    public function __construct(
+        private readonly TicketWorkflowService $workflow,
+        private readonly TicketEventService $events,
+        private readonly PrepareTicketReassignmentAction $prepareReassignment,
+    ) {}
 
     public function execute(Ticket $ticket, User $receivedBy, ?string $observation = null): Ticket
     {
@@ -38,7 +42,7 @@ class ReceiveTicketReturnAction
                 metadata: ['delivery_attempt_id' => $attempt?->id],
             );
 
-            return $ticket;
+            return $this->prepareReassignment->execute($ticket, $receivedBy, $observation);
         });
     }
 }

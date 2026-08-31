@@ -16,6 +16,7 @@ class DriverTicketResource extends JsonResource
         $allowedNextStatuses = collect($this->status?->allowedNextStatuses() ?? [])
             ->reject(fn (TicketStatus $status): bool => in_array($status, [
                 TicketStatus::Dispatched,
+                TicketStatus::InRoute,
                 TicketStatus::Delivered,
                 TicketStatus::DeliveryFailed,
                 TicketStatus::Returning,

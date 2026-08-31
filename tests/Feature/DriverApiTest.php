@@ -121,7 +121,7 @@ it('returns only tickets assigned to the authenticated driver', function () {
         ->assertJsonPath('data.0.id', $ticket->id)
         ->assertJsonPath('data.0.mobile_bucket', 'assigned')
         ->assertJsonPath('data.0.items_count', 1)
-        ->assertJsonPath('data.0.allowed_next_statuses.0.value', TicketStatus::InRoute->value)
+        ->assertJsonCount(0, 'data.0.allowed_next_statuses')
         ->assertJsonMissingPath('data.0.mobile_actions')
         ->assertJsonMissingPath('data.0.items')
         ->assertJsonMissingPath('data.0.events')
@@ -177,23 +177,34 @@ it('keeps delivered tickets in paginated driver history', function () {
         ->assertJsonPath('meta.per_page', 15);
 });
 
-it('allows a driver to change status with location and records an event', function () {
+it('allows a driver to advance a routed ticket with location and records an event', function () {
     [$user, $driver, $ticket] = driverApiFixtures();
+    $ticket->forceFill(['status' => TicketStatus::InRoute])->save();
     Sanctum::actingAs($user, ['driver']);
 
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
-        'status' => TicketStatus::InRoute->value,
+        'status' => TicketStatus::AtDestination->value,
         'latitude' => -0.9332100,
         'longitude' => -79.2258100,
         'accuracy' => 8.5,
         'local_event_id' => 'evt-status-001',
     ])
         ->assertOk()
-        ->assertJsonPath('data.status', TicketStatus::InRoute->value);
+        ->assertJsonPath('data.status', TicketStatus::AtDestination->value);
 
-    expect($ticket->refresh()->status)->toBe(TicketStatus::InRoute)
+    expect($ticket->refresh()->status)->toBe(TicketStatus::AtDestination)
         ->and($driver->refresh()->last_latitude)->toEqual('-0.9332100')
         ->and($ticket->events()->where('event_type', TicketEventType::StatusChanged->value)->exists())->toBeTrue();
+});
+
+it('rejects starting an individual ticket outside the global route', function () {
+    [$user, , $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
+        'status' => TicketStatus::InRoute->value,
+    ])->assertUnprocessable()
+        ->assertJsonPath('message', 'Debes usar Iniciar ruta para comenzar todas las entregas.');
 });
 
 it('rejects access to a ticket assigned to another driver', function () {

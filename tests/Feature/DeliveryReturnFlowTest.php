@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Tickets\PrepareTicketReassignmentAction;
 use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Enums\DriverStatus;
 use App\Enums\TicketStatus;
@@ -10,6 +9,7 @@ use App\Models\NoveltyReason;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Support\Tickets\TicketAssignmentForm;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 
@@ -38,7 +38,7 @@ it('requires arrival and unloading before delivery evidence', function () {
     [$user, , $ticket] = deliveryReturnFixtures();
     Sanctum::actingAs($user, ['driver']);
 
-    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", ['status' => 'in_route'])->assertOk();
+    $this->postJson('/api/v1/driver/routes/start')->assertOk();
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", ['status' => 'at_destination'])->assertOk();
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", ['status' => 'unloading'])
         ->assertOk()
@@ -53,9 +53,8 @@ it('closes a failed delivery as returning and lets warehouse prepare reassignmen
     [$user, , $ticket, $reason] = deliveryReturnFixtures();
     Sanctum::actingAs($user, ['driver']);
 
-    foreach (['in_route', 'at_destination'] as $status) {
-        $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", compact('status'))->assertOk();
-    }
+    $this->postJson('/api/v1/driver/routes/start')->assertOk();
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", ['status' => 'at_destination'])->assertOk();
 
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/failed-delivery", [
         'novelty_reason_id' => $reason->id,
@@ -67,11 +66,12 @@ it('closes a failed delivery as returning and lets warehouse prepare reassignmen
         ->and($ticket->deliveryAttempts()->first()->status)->toBe('failed_returning');
 
     $warehouseUser = User::factory()->create(['company_id' => $ticket->company_id, 'is_active' => true]);
-    app(ReceiveTicketReturnAction::class)->execute($ticket, $warehouseUser, 'Mercadería completa.');
-    expect($ticket->refresh()->status)->toBe(TicketStatus::ArrivedBack);
+    app(ReceiveTicketReturnAction::class)->execute($ticket, $warehouseUser, 'MercaderÃ­a completa.');
 
-    app(PrepareTicketReassignmentAction::class)->execute($ticket, $warehouseUser);
     expect($ticket->refresh()->status)->toBe(TicketStatus::PendingReassignment)
         ->and($ticket->current_driver_id)->toBeNull()
-        ->and($ticket->current_vehicle_id)->toBeNull();
+        ->and($ticket->current_vehicle_id)->toBeNull()
+        ->and(TicketAssignmentForm::defaultState($ticket)['driver_id'])->toBeNull()
+        ->and(TicketAssignmentForm::defaultState($ticket)['vehicle_id'])->toBeNull()
+        ->and(TicketAssignmentForm::hasExistingAssignment($ticket))->toBeFalse();
 });
