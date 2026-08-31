@@ -585,10 +585,6 @@
                                 @if ($this->canReceiveReturn($ticket))
                                     {!! $this->receiveReturnButtonHtml($ticket->id) !!}
                                 @endif
-
-                                @if ($this->canPrepareReassignment($ticket))
-                                    {!! $this->prepareReassignmentButtonHtml($ticket->id) !!}
-                                @endif
                             </div>
                         </div>
                     @empty

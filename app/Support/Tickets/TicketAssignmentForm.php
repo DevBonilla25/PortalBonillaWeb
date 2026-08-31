@@ -2,6 +2,7 @@
 
 namespace App\Support\Tickets;
 
+use App\Enums\TicketStatus;
 use App\Models\Ticket;
 
 class TicketAssignmentForm
@@ -17,6 +18,16 @@ class TicketAssignmentForm
      */
     public static function defaultState(Ticket $ticket): array
     {
+        if ($ticket->status === TicketStatus::PendingReassignment) {
+            return [
+                'driver_id' => null,
+                'vehicle_id' => null,
+                'warehouse_user_id' => null,
+                'assistant_ids' => [],
+                'internal_observation' => null,
+            ];
+        }
+
         $ticket->loadMissing(['latestAssignment.assistants']);
 
         $assignment = $ticket->latestAssignment;
@@ -32,6 +43,10 @@ class TicketAssignmentForm
 
     public static function hasExistingAssignment(Ticket $ticket): bool
     {
+        if ($ticket->status === TicketStatus::PendingReassignment) {
+            return false;
+        }
+
         $ticket->loadMissing('latestAssignment');
 
         return $ticket->latestAssignment !== null

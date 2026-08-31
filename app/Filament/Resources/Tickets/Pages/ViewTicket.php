@@ -22,7 +22,6 @@ class ViewTicket extends ViewRecord
         return [
             TicketRecordActions::sendToWarehouse(),
             TicketRecordActions::receiveReturn(),
-            TicketRecordActions::prepareReassignment(),
             TicketRecordActions::assignResources(),
             TicketRecordActions::rescheduleTicket(),
             TicketRecordActions::cancelTicket(),
