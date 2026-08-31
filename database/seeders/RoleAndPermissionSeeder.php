@@ -32,6 +32,7 @@ class RoleAndPermissionSeeder extends Seeder
             'employees.create',
             'employees.update',
             'employees.delete',
+            'View:WarehousePanel',
         ], $this->resourcePermissions());
 
         foreach (array_unique($permissions) as $name) {
@@ -71,6 +72,7 @@ class RoleAndPermissionSeeder extends Seeder
             'DriverProfile',
             'Ticket',
             'NoveltyReason',
+            'LogisticOperation',
         ];
 
         $actions = [
@@ -102,7 +104,7 @@ class RoleAndPermissionSeeder extends Seeder
     private function createOperationalRoles(): void
     {
         $roles = [
-            'admin' => $this->resourcePermissions(),
+            'admin' => [...$this->resourcePermissions(), 'View:WarehousePanel'],
             'cashier' => [
                 'ViewAny:Ticket',
                 'View:Ticket',
@@ -116,6 +118,7 @@ class RoleAndPermissionSeeder extends Seeder
                 'Update:Contact',
             ],
             'warehouse_operator' => [
+                'View:WarehousePanel',
                 'ViewAny:Ticket',
                 'View:Ticket',
                 'Update:Ticket',
@@ -129,11 +132,34 @@ class RoleAndPermissionSeeder extends Seeder
                 'View:Warehouse',
                 'ViewAny:Branch',
                 'View:Branch',
+                'ViewAny:LogisticOperation',
+                'View:LogisticOperation',
+                'Create:LogisticOperation',
+                'Update:LogisticOperation',
             ],
             'warehouse_assistant' => [
+                'View:WarehousePanel',
                 'ViewAny:Ticket',
                 'View:Ticket',
                 'Update:Ticket',
+            ],
+            'supervisor' => [
+                'View:WarehousePanel',
+                'ViewAny:Ticket',
+                'View:Ticket',
+                'Update:Ticket',
+                'ViewAny:LogisticOperation',
+                'View:LogisticOperation',
+                'Create:LogisticOperation',
+                'Update:LogisticOperation',
+                'ViewAny:Vehicle',
+                'View:Vehicle',
+                'ViewAny:DriverProfile',
+                'View:DriverProfile',
+            ],
+            'external_driver' => [
+                'ViewAny:Vehicle',
+                'View:Vehicle',
             ],
             'driver' => [
                 'ViewAny:Ticket',

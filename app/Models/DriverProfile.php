@@ -92,4 +92,9 @@ class DriverProfile extends Model
     {
         return $this->hasMany(DriverNotification::class);
     }
+
+    public function logisticOperations(): HasMany
+    {
+        return $this->hasMany(LogisticOperation::class, 'driver_id');
+    }
 }

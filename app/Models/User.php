@@ -94,6 +94,8 @@ class User extends Authenticatable implements FilamentUser
                 'warehouse_operator',
                 'warehouse_assistant',
                 'driver',
+                'external_driver',
+                'supervisor',
             ]);
     }
 }

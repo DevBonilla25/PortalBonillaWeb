@@ -33,7 +33,7 @@ class TicketInfolist
                             ->columnSpan(1)
                             ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
                             ->color(fn (TicketStatus $state): string => self::statusColor($state))
-                            ->badge(),  
+                            ->badge(),
                         TextEntry::make('cashier.name')
                             ->label('Cajero')
                             ->placeholder('-')
@@ -63,6 +63,27 @@ class TicketInfolist
                             ->formatStateUsing(fn (?TicketPriority $state): string => self::priorityLabel($state))
                             ->color(fn (?TicketPriority $state): string => self::priorityColor($state))
                             ->badge(),
+                        TextEntry::make('last_rescheduled_at')
+                            ->label('Última reprogramación')
+                            ->dateTime('d/m/Y H:i')
+                            ->columnSpan(2)
+                            ->visible(fn ($record): bool => $record->rescheduled_count > 0),
+                        TextEntry::make('rescheduled_count')
+                            ->label('Reprogramado')
+                            ->formatStateUsing(fn (int $state): string => $state > 1 ? "Sí ({$state} veces)" : 'Sí')
+                            ->columnSpan(1)
+                            ->badge()
+                            ->color('warning')
+                            ->visible(fn ($record): bool => $record->rescheduled_count > 0),
+                        TextEntry::make('reschedule_reason')
+                            ->label('Último motivo de reprogramación')
+                            ->columnSpan(4)
+                            ->placeholder('-')
+                            ->visible(fn ($record): bool => $record->rescheduled_count > 0),
+                        TextEntry::make('cancelled_reason')
+                            ->label('Motivo de cancelación')
+                            ->placeholder('-')
+                            ->visible(fn ($record): bool => $record->status === TicketStatus::Cancelled),
                     ]),
 
                 Section::make('Cliente y destino')
@@ -94,8 +115,6 @@ class TicketInfolist
                             ->placeholder('-')
                             ->columnSpan(2),
                     ]),
-
-                
 
                 Grid::make([
                     'default' => 1,
@@ -166,10 +185,13 @@ class TicketInfolist
 
             TicketStatus::Dispatched,
             TicketStatus::InRoute,
+            TicketStatus::AtDestination,
+            TicketStatus::Unloading,
             TicketStatus::Returning => 'info',
 
             TicketStatus::Delivered,
-            TicketStatus::ArrivedBack => 'success',
+            TicketStatus::ArrivedBack,
+            TicketStatus::PendingReassignment => 'success',
 
             TicketStatus::DeliveryFailed,
             TicketStatus::Cancelled => 'danger',

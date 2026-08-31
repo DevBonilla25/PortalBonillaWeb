@@ -17,9 +17,15 @@ class WarehousePanelService
 {
     private const RECEIVED_LIMIT = 30;
 
+    private const PREPARATION_LIMIT = 30;
+
+    private const LOADING_LIMIT = 30;
+
     private const DISPATCHED_LIMIT = 20;
 
-    private const ADMIN_ROLES = ['super_admin', 'admin'];
+    private const RETURNS_LIMIT = 30;
+
+    private const ADMIN_ROLES = ['super_admin', 'admin', 'supervisor'];
 
     private const WAREHOUSE_OPERATOR_ROLES = ['warehouse_operator'];
 
@@ -35,6 +41,7 @@ class WarehousePanelService
             ->merge([
                 TicketStatus::AssignedToWarehouse,
                 TicketStatus::Loaded,
+                TicketStatus::PendingReassignment,
             ])
             ->unique()
             ->values()
@@ -154,6 +161,24 @@ class WarehousePanelService
         return $this->loadedStatusEventQuery($user, $warehouseId)->max('id');
     }
 
+    /**
+     * @return Collection<int, TicketEvent>
+     */
+    public function sentToWarehouseEventsForPanel(?User $user, ?int $warehouseId = null, ?int $afterEventId = null): Collection
+    {
+        return $this->sentToWarehouseEventQuery($user, $warehouseId)
+            ->with('ticket')
+            ->when($afterEventId, fn (Builder $query, int $eventId): Builder => $query->where('id', '>', $eventId))
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
+    }
+
+    public function latestSentToWarehouseEventIdForPanel(?User $user, ?int $warehouseId = null): ?int
+    {
+        return $this->sentToWarehouseEventQuery($user, $warehouseId)->max('id');
+    }
+
     private function loadedStatusEventQuery(?User $user, ?int $warehouseId = null): Builder
     {
         $visibleTicketIds = $this->baseQuery($user, $warehouseId)
@@ -163,6 +188,25 @@ class WarehousePanelService
         return TicketEvent::query()
             ->where('event_type', TicketEventType::StatusChanged->value)
             ->where('new_status', TicketStatus::Loaded->value)
+            ->whereIn('ticket_id', $visibleTicketIds);
+    }
+
+    private function sentToWarehouseEventQuery(?User $user, ?int $warehouseId = null): Builder
+    {
+        $visibleTicketIds = $this->baseQuery($user, $warehouseId)
+            ->select('tickets.id')
+            ->reorder();
+
+        return TicketEvent::query()
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('event_type', TicketEventType::SentToWarehouse->value)
+                    ->orWhere(function (Builder $query): void {
+                        $query
+                            ->where('event_type', TicketEventType::StatusChanged->value)
+                            ->where('new_status', TicketStatus::SentToWarehouse->value);
+                    });
+            })
             ->whereIn('ticket_id', $visibleTicketIds);
     }
 
@@ -229,7 +273,10 @@ class WarehousePanelService
     {
         return [
             'received' => self::RECEIVED_LIMIT,
+            'preparation' => self::PREPARATION_LIMIT,
+            'loading' => self::LOADING_LIMIT,
             'dispatched' => self::DISPATCHED_LIMIT,
+            'returns' => self::RETURNS_LIMIT,
         ];
     }
 
@@ -339,6 +386,7 @@ class WarehousePanelService
                 TicketStatus::AssignedToWarehouse,
                 TicketStatus::Loading,
                 TicketStatus::Loaded,
+                TicketStatus::PendingReassignment,
             ])
             ->where(function (Builder $query) use ($user): void {
                 $query

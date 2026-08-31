@@ -7,6 +7,7 @@ use App\Filament\Resources\Zones\Pages\CreateZone;
 use App\Filament\Resources\Zones\Pages\EditZone;
 use App\Filament\Resources\Zones\Pages\ListZones;
 use App\Filament\Resources\Zones\Pages\ViewZone;
+use App\Filament\Resources\Zones\RelationManagers\SubzonesRelationManager;
 use App\Filament\Resources\Zones\Schemas\ZoneForm;
 use App\Filament\Resources\Zones\Schemas\ZoneInfolist;
 use App\Filament\Resources\Zones\Tables\ZonesTable;
@@ -48,6 +49,13 @@ class ZoneResource extends Resource
     public static function table(Table $table): Table
     {
         return ZonesTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            SubzonesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

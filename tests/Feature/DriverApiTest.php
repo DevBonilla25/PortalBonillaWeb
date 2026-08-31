@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
@@ -39,6 +40,9 @@ function driverApiFixtures(): array
         'password' => Hash::make('secret-password'),
         'is_active' => true,
     ]);
+
+    Role::query()->firstOrCreate(['name' => 'driver', 'guard_name' => 'web']);
+    $user->assignRole('driver');
 
     $driver = DriverProfile::query()->create([
         'user_id' => $user->id,
@@ -83,6 +87,21 @@ it('logs in a driver and returns a sanctum token', function () {
                 'driver_profile' => ['id'],
             ],
         ]);
+});
+
+it('logs in an external driver with an active driver profile', function () {
+    [$user] = driverApiFixtures();
+    Role::query()->firstOrCreate(['name' => 'external_driver', 'guard_name' => 'web']);
+    $user->syncRoles(['external_driver']);
+
+    $this->postJson('/api/v1/auth/login', [
+        'email' => 'driver@example.test',
+        'password' => 'secret-password',
+        'device_name' => 'App abastecimiento',
+    ])
+        ->assertOk()
+        ->assertJsonPath('user.roles.0', 'external_driver')
+        ->assertJsonPath('user.driver_profile.id', $user->driverProfile->id);
 });
 
 it('returns only tickets assigned to the authenticated driver', function () {
@@ -192,12 +211,38 @@ it('rejects access to a ticket assigned to another driver', function () {
         ->assertNotFound();
 });
 
+it('does not let the driver dispatch or receive a return in warehouse', function () {
+    [$user, , $ticket] = driverApiFixtures();
+    Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill(['status' => TicketStatus::Loaded])->save();
+
+    $this->getJson("/api/v1/driver/tickets/{$ticket->id}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data.allowed_next_statuses');
+
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
+        'status' => TicketStatus::Dispatched->value,
+    ])->assertUnprocessable();
+
+    $ticket->forceFill(['status' => TicketStatus::Returning])->save();
+
+    $this->getJson("/api/v1/driver/tickets/{$ticket->id}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data.allowed_next_statuses');
+
+    $this->postJson("/api/v1/driver/tickets/{$ticket->id}/change-status", [
+        'status' => TicketStatus::ArrivedBack->value,
+    ])->assertUnprocessable();
+});
 it('registers delivery evidence and ticket novelties from driver api', function () {
     config(['filesystems.logistics_media_disk' => 'public']);
 
     Storage::fake('public');
     [$user, $driver, $ticket] = driverApiFixtures();
     Sanctum::actingAs($user, ['driver']);
+
+    $ticket->forceFill(['status' => TicketStatus::Unloading])->save();
 
     $this->postJson("/api/v1/driver/tickets/{$ticket->id}/evidence", [
         'received_by_name' => 'Receptor Demo',

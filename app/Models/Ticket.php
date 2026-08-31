@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeliveryType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'warehouse_id',
     'contact_id',
     'zone_id',
+    'delivery_type',
+    'subzone_id',
     'cashier_id',
     'current_driver_id',
     'current_vehicle_id',
@@ -35,13 +38,21 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'customer_phone_2',
     'delivery_address',
     'delivery_reference',
+    'google_maps_url',
     'priority',
     'status',
     'assigned_at',
     'dispatched_at',
+    'arrived_destination_at',
+    'unloading_at',
     'delivered_at',
     'returned_at',
+    'warehouse_received_at',
     'closed_at',
+    'rescheduled_count',
+    'last_rescheduled_at',
+    'reschedule_reason',
+    'cancelled_reason',
     'observations',
 ])]
 class Ticket extends Model
@@ -58,13 +69,19 @@ class Ticket extends Model
     {
         return [
             'priority' => TicketPriority::class,
+            'delivery_type' => DeliveryType::class,
             'status' => TicketStatus::class,
             'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
             'dispatched_at' => 'datetime',
+            'arrived_destination_at' => 'datetime',
+            'unloading_at' => 'datetime',
             'delivered_at' => 'datetime',
             'returned_at' => 'datetime',
+            'warehouse_received_at' => 'datetime',
             'closed_at' => 'datetime',
+            'rescheduled_count' => 'integer',
+            'last_rescheduled_at' => 'datetime',
         ];
     }
 
@@ -91,6 +108,11 @@ class Ticket extends Model
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    public function subzone(): BelongsTo
+    {
+        return $this->belongsTo(Subzone::class);
     }
 
     public function cashier(): BelongsTo
@@ -148,6 +170,11 @@ class Ticket extends Model
         return $this->hasMany(TicketNovelty::class);
     }
 
+    public function deliveryAttempts(): HasMany
+    {
+        return $this->hasMany(DeliveryAttempt::class);
+    }
+
     public function locationPoints(): HasMany
     {
         return $this->hasMany(LocationPoint::class);
@@ -195,5 +222,16 @@ class Ticket extends Model
         return $this->items()
             ->where('is_loaded', true)
             ->count();
+    }
+
+    public function resetLoadingChecklist(): void
+    {
+        $this->items()->update([
+            'loaded_quantity' => null,
+            'is_loaded' => false,
+            'load_reviewed_by' => null,
+            'load_reviewed_at' => null,
+            'load_observation' => null,
+        ]);
     }
 }

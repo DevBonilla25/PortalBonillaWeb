@@ -1,9 +1,21 @@
 <x-filament-panels::page>
     @once
         <style>
+            body:has(.wh-panel-filters) .fi-main {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+            }
+
+            @media (min-width: 1024px) {
+                body:has(.wh-panel-filters) .fi-main {
+                    padding-left: 0rem !important;
+                    padding-right: 0rem !important;
+                }
+            }
+
             .wh-panel-filters {
                 display: grid;
-                grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr);
+                grid-template-columns: minmax(14rem, 3fr) minmax(10rem, 2fr) minmax(18rem, 7fr) auto;
                 gap: 0.75rem;
                 align-items: end;
                 margin-bottom: 1.5rem;
@@ -63,20 +75,45 @@
 
             .wh-kanban {
                 display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-auto-flow: column;
+                grid-auto-columns: minmax(18rem, 22rem);
+                grid-template-columns: none;
                 gap: 1rem;
                 align-items: start;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding-bottom: 0.75rem;
+                scroll-snap-type: x proximity;
+                scrollbar-gutter: stable;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+
+            .wh-kanban::-webkit-scrollbar {
+                display: none;
+            }
+
+            .wh-kanban-scrollbar {
+                overflow-x: auto;
+                overflow-y: hidden;
+                height: 0.875rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .wh-kanban-scrollbar-track {
+                height: 1px;
             }
 
             @media (max-width: 1280px) {
                 .wh-kanban {
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    grid-auto-columns: minmax(18rem, 21rem);
                 }
             }
 
             @media (max-width: 640px) {
                 .wh-kanban {
-                    grid-template-columns: minmax(0, 1fr);
+                    grid-auto-columns: minmax(17rem, calc(100vw - 3rem));
+                    overscroll-behavior-inline: contain;
                 }
             }
 
@@ -85,6 +122,7 @@
                 flex-direction: column;
                 gap: 0.75rem;
                 min-width: 0;
+                scroll-snap-align: start;
             }
 
             .wh-kanban-column-header {
@@ -133,6 +171,14 @@
 
             .wh-kanban-dot--primary {
                 background: rgb(217 119 6);
+            }
+
+            .wh-kanban-dot--danger {
+                background: rgb(220 38 38);
+            }
+
+            .wh-kanban-dot--success {
+                background: rgb(22 163 74);
             }
 
             .wh-kanban-cards {
@@ -310,8 +356,37 @@
         </x-filament::section>
     @else
     <div
-        wire:poll.5s="pollWarehousePanel"
+        wire:poll.15s="pollWarehousePanel"
         x-data="{
+            kanbanWidth: 0,
+            syncingKanbanScroll: false,
+            kanbanResizeObserver: null,
+            notificationPermission: ('Notification' in window) ? Notification.permission : 'unsupported',
+            initKanbanScroll() {
+                this.$nextTick(() => {
+                    this.updateKanbanWidth()
+
+                    this.kanbanResizeObserver = new ResizeObserver(() => this.updateKanbanWidth())
+                    this.kanbanResizeObserver.observe(this.$refs.kanban)
+                })
+            },
+            updateKanbanWidth() {
+                this.kanbanWidth = this.$refs.kanban?.scrollWidth ?? 0
+            },
+            scrollKanbanFromTop() {
+                if (this.syncingKanbanScroll || ! this.$refs.kanban) return
+
+                this.syncingKanbanScroll = true
+                this.$refs.kanban.scrollLeft = this.$refs.topScrollbar.scrollLeft
+                requestAnimationFrame(() => this.syncingKanbanScroll = false)
+            },
+            scrollTopFromKanban() {
+                if (this.syncingKanbanScroll || ! this.$refs.topScrollbar) return
+
+                this.syncingKanbanScroll = true
+                this.$refs.topScrollbar.scrollLeft = this.$refs.kanban.scrollLeft
+                requestAnimationFrame(() => this.syncingKanbanScroll = false)
+            },
             playWarehouseNotificationSound(url) {
                 if (! url) {
                     return
@@ -321,8 +396,30 @@
 
                 audio.play().catch(() => {})
             },
+            async enableWarehouseNotifications() {
+                if (! ('Notification' in window)) return
+
+                this.notificationPermission = await Notification.requestPermission()
+            },
+            handleWarehouseTicketLoaded(detail) {
+                this.handleWarehouseBrowserNotification(detail, 'warehouse-ticket-loaded')
+            },
+            handleWarehouseTicketReceived(detail) {
+                this.handleWarehouseBrowserNotification(detail, 'warehouse-ticket-received')
+            },
+            handleWarehouseBrowserNotification(detail, tagPrefix) {
+                this.playWarehouseNotificationSound(detail.soundUrl)
+
+                if (document.hidden && this.notificationPermission === 'granted') {
+                    new Notification(detail.title, {
+                        body: detail.body,
+                        tag: `${tagPrefix}-${detail.ticketId}`,
+                    })
+                }
+            },
         }"
-        @warehouse-ticket-loaded.window="playWarehouseNotificationSound($event.detail.soundUrl)"
+        @warehouse-ticket-loaded.window="handleWarehouseTicketLoaded($event.detail)"
+        @warehouse-ticket-received.window="handleWarehouseTicketReceived($event.detail)"
     >
         <div class="wh-panel-filters">
         <div class="wh-panel-field">
@@ -361,12 +458,36 @@
                 @endforeach
             </div>
         </div>
+        <div x-show="notificationPermission === 'default'">
+            <x-filament::icon-button
+                icon="heroicon-o-bell"
+                color="gray"
+                size="lg"
+                tooltip="Activar notificaciones"
+                aria-label="Activar notificaciones"
+                x-on:click="enableWarehouseNotifications()"
+            />
+        </div>
         </div>
 
-        <div class="wh-kanban">
+        <div
+            class="wh-kanban-scrollbar"
+            x-ref="topScrollbar"
+            x-init="initKanbanScroll()"
+            @scroll="scrollKanbanFromTop()"
+            aria-label="Desplazamiento horizontal de columnas"
+        >
+            <div class="wh-kanban-scrollbar-track" :style="'width: ' + kanbanWidth + 'px'"></div>
+        </div>
+
+        @php
+            $ticketsByColumn = $this->ticketsByColumn;
+        @endphp
+
+        <div class="wh-kanban" x-ref="kanban" @scroll="scrollTopFromKanban()">
             @foreach ($this->getColumns() as $column)
             @php
-                $columnTickets = $this->ticketsByColumn->get($column->key, collect());
+                $columnTickets = $ticketsByColumn->get($column->key, collect());
                 $tickets = $this->visibleTicketsForColumn($column->key, $columnTickets);
                 $hasMore = $this->columnHasMore($column->key, $columnTickets);
             @endphp
@@ -379,6 +500,8 @@
                             'wh-kanban-dot--info' => $column->dotColor === 'info',
                             'wh-kanban-dot--warning' => $column->dotColor === 'warning',
                             'wh-kanban-dot--primary' => $column->dotColor === 'primary',
+                            'wh-kanban-dot--danger' => $column->dotColor === 'danger',
+                            'wh-kanban-dot--success' => $column->dotColor === 'success',
                         ])></span>
                         <span>{{ $column->label }}</span>
                     </div>
@@ -457,6 +580,15 @@
                                 @if ($this->canReviewLoadingChecklist($ticket))
                                     {!! $this->reviewLoadingChecklistButtonHtml($ticket->id) !!}
                                 @endif
+
+
+                                @if ($this->canReceiveReturn($ticket))
+                                    {!! $this->receiveReturnButtonHtml($ticket->id) !!}
+                                @endif
+
+                                @if ($this->canPrepareReassignment($ticket))
+                                    {!! $this->prepareReassignmentButtonHtml($ticket->id) !!}
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -488,3 +620,4 @@
 
     <x-filament-actions::modals />
 </x-filament-panels::page>
+
