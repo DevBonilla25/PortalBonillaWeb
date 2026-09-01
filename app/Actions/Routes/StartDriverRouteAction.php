@@ -53,13 +53,10 @@ class StartDriverRouteAction
                 throw new DomainException('Las actividades asignadas deben pertenecer a un solo vehiculo.');
             }
             $warehouseIds = $tickets->pluck('warehouse_id')->merge($pickups->pluck('warehouse_id'))->filter()->unique()->values();
-            if ($warehouseIds->count() > 1) {
-                throw new DomainException('Las actividades asignadas pertenecen a diferentes bodegas.');
-            }
 
             $occurredAt = isset($location['recorded_at']) ? Carbon::parse($location['recorded_at']) : now();
             $route = DeliveryRoute::query()->create([
-                'company_id' => $driver->user->company_id, 'warehouse_id' => $warehouseIds->first(),
+                'company_id' => $driver->user->company_id, 'warehouse_id' => $warehouseIds->count() === 1 ? $warehouseIds->first() : null,
                 'driver_id' => $driver->id, 'vehicle_id' => $vehicleIds->first(), 'created_by' => $driver->user_id,
                 'status' => DeliveryRouteStatus::InProgress, 'started_at' => $occurredAt,
             ]);

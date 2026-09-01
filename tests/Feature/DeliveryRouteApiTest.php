@@ -2,6 +2,7 @@
 
 use App\Enums\DriverStatus;
 use App\Enums\TicketStatus;
+use App\Enums\WarehouseType;
 use App\Models\Company;
 use App\Models\DeliveryRoute;
 use App\Models\DriverProfile;
@@ -9,6 +10,7 @@ use App\Models\PickupOrder;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
@@ -54,6 +56,27 @@ it('automatically creates and starts a route with every dispatched ticket', func
         ->and($tickets->sum(fn (Ticket $ticket) => $ticket->deliveryAttempts()->count()))->toBe(2);
 });
 
+it('starts one route with tickets dispatched from different warehouses', function () {
+    [$driverUser, , , $tickets] = automaticRouteFixtures();
+    $warehouses = collect([1, 2])->map(fn (int $number) => Warehouse::query()->create([
+        'company_id' => $driverUser->company_id,
+        'code' => "BOD-{$number}",
+        'name' => "Bodega {$number}",
+        'type' => WarehouseType::Branch,
+    ]));
+    $tickets->each(fn (Ticket $ticket, int $index) => $ticket->forceFill([
+        'warehouse_id' => $warehouses[$index]->id,
+    ])->save());
+    Sanctum::actingAs($driverUser);
+
+    $this->postJson('/api/v1/driver/routes/start')
+        ->assertOk()
+        ->assertJsonCount(2, 'data.tasks');
+
+    expect(DeliveryRoute::query()->sole()->warehouse_id)->toBeNull()
+        ->and($tickets->map(fn (Ticket $ticket) => $ticket->refresh()->status)->all())
+        ->each->toBe(TicketStatus::InRoute);
+});
 it('returns the active route when start is requested more than once', function () {
     [$driverUser] = automaticRouteFixtures();
     Sanctum::actingAs($driverUser);
