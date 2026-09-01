@@ -15,14 +15,14 @@ class AttachPickupToActiveRouteAction
             $route = DeliveryRoute::query()->where('driver_id', $pickup->driver_id)->where('vehicle_id', $pickup->vehicle_id)
                 ->whereIn('status', [DeliveryRouteStatus::InProgress->value, DeliveryRouteStatus::ReturningToWarehouse->value])
                 ->lockForUpdate()->latest('id')->first();
-            if (! $route || ($route->warehouse_id && $pickup->warehouse_id && (int) $route->warehouse_id !== (int) $pickup->warehouse_id)) {
+            if (! $route) {
                 return null;
             }
             if ($pickup->routeTask()->exists()) {
                 return $route->load('tasks');
             }
-            if (! $route->warehouse_id && $pickup->warehouse_id) {
-                $route->forceFill(['warehouse_id' => $pickup->warehouse_id])->save();
+            if ($route->warehouse_id && $pickup->warehouse_id && (int) $route->warehouse_id !== (int) $pickup->warehouse_id) {
+                $route->forceFill(['warehouse_id' => null])->save();
             }
 
             $sequence = ((int) $route->tasks()->max('sequence')) + 1;
