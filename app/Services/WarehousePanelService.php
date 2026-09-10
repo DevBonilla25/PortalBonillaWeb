@@ -51,8 +51,19 @@ class WarehousePanelService
     public function baseQuery(?User $user = null, ?int $warehouseId = null): Builder
     {
         $query = Ticket::query()
-            ->with(['warehouse', 'zone', 'currentDriver.user', 'latestAssignment.assistants'])
+            ->with(['warehouse', 'zone', 'currentDriver.user', 'latestAssignment.assistants', 'latestSentToWarehouseEvent'])
             ->withCount('items')
+            ->withMax([
+                'events as sent_to_warehouse_at' => function (Builder $query): void {
+                    $query
+                        ->where('event_type', TicketEventType::SentToWarehouse->value)
+                        ->orWhere(function (Builder $query): void {
+                            $query
+                                ->where('event_type', TicketEventType::StatusChanged->value)
+                                ->where('new_status', TicketStatus::SentToWarehouse->value);
+                        });
+                },
+            ], 'occurred_at')
             ->whereIn('status', $this->warehouseStatuses())
             ->orderByDesc('updated_at');
 
@@ -214,7 +225,7 @@ class WarehousePanelService
     {
         return $user !== null
             && ! $user->hasAnyRole(self::ADMIN_ROLES)
-            && $user->hasAnyRole([...self::WAREHOUSE_OPERATOR_ROLES, ...self::WAREHOUSE_ASSISTANT_ROLES]);
+            && $user->hasAnyRole(self::WAREHOUSE_ASSISTANT_ROLES);
     }
 
     /**
@@ -253,7 +264,7 @@ class WarehousePanelService
                 });
 
                 $column->key === 'received'
-                    ? $columnQuery->orderBy('updated_at')
+                    ? $columnQuery->orderBy('sent_to_warehouse_at')->orderBy('id')
                     : $columnQuery->orderByDesc('updated_at');
 
                 $limit = $limits[$column->key] ?? $this->defaultLimitForColumn($column->key);

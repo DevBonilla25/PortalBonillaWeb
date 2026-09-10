@@ -305,10 +305,38 @@
 
             .wh-kanban-card-actions {
                 display: flex;
-                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
                 gap: 0.5rem;
                 padding-top: 0.75rem;
                 border-top: 1px solid rgb(243 244 246);
+            }
+
+            .wh-kanban-card-action-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                gap: 0.5rem;
+                margin-left: auto;
+            }
+
+            .wh-kanban-card-sent-time {
+                display: inline-flex;
+                align-items: center;
+                min-height: 2rem;
+                border-radius: 0.375rem;
+                padding: 0.25rem 0.5rem;
+                background: rgb(239 246 255);
+                color: rgb(29 78 216);
+                font-size: 0.75rem;
+                font-weight: 600;
+                line-height: 1rem;
+                white-space: nowrap;
+            }
+
+            .dark .wh-kanban-card-sent-time {
+                background: rgb(30 64 175 / 0.18);
+                color: rgb(147 197 253);
             }
 
             .dark .wh-kanban-card-actions {
@@ -550,6 +578,7 @@
                                 <p class="wh-kanban-card-meta">
                                     Sucursal: {{ $ticket->warehouse?->name ?? 'Sin bodega' }}
                                 </p>
+
                                 <p class="wh-kanban-card-meta wh-kanban-card-meta-row">
                                     <span>Chofer: {{ $ticket->currentDriver?->user?->name ?? 'Sin asignar' }}</span>
                                     <span>
@@ -565,26 +594,33 @@
                             </div>
 
                             <div class="wh-kanban-card-actions">
-                                @if ($this->canAssignTicket($ticket))
-                                    {!! $this->assignTicketButtonHtml($ticket->id) !!}
+                                @if ($column->key === 'received')
+                                    <span class="wh-kanban-card-sent-time">
+                                        {{ $this->sentToWarehouseTime($ticket) }}
+                                    </span>
                                 @endif
 
-                                @if ($this->canAdvanceTicket($ticket))
-                                    {!! $this->advanceTicketButtonHtml($ticket->id) !!}
-                                @endif
+                                <div class="wh-kanban-card-action-buttons">
+                                    @if ($this->canAssignTicket($ticket))
+                                        {!! $this->assignTicketButtonHtml($ticket->id) !!}
+                                    @endif
 
-                                @if ($this->canMarkLoaded($ticket))
-                                    {!! $this->markLoadedButtonHtml($ticket->id) !!}
-                                @endif
+                                    @if ($this->canAdvanceTicket($ticket))
+                                        {!! $this->advanceTicketButtonHtml($ticket->id) !!}
+                                    @endif
 
-                                @if ($this->canReviewLoadingChecklist($ticket))
-                                    {!! $this->reviewLoadingChecklistButtonHtml($ticket->id) !!}
-                                @endif
+                                    @if ($this->canMarkLoaded($ticket))
+                                        {!! $this->markLoadedButtonHtml($ticket->id) !!}
+                                    @endif
 
+                                    @if ($this->canReviewLoadingChecklist($ticket))
+                                        {!! $this->reviewLoadingChecklistButtonHtml($ticket->id) !!}
+                                    @endif
 
-                                @if ($this->canReceiveReturn($ticket))
-                                    {!! $this->receiveReturnButtonHtml($ticket->id) !!}
-                                @endif
+                                    @if ($this->canReceiveReturn($ticket))
+                                        {!! $this->receiveReturnButtonHtml($ticket->id) !!}
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     @empty
