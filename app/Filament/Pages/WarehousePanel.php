@@ -33,6 +33,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -627,6 +628,28 @@ class WarehousePanel extends Page implements HasActions
     public function ticketViewUrl(Ticket $ticket): string
     {
         return TicketResource::getUrl('view', ['record' => $ticket]);
+    }
+
+    public function sentToWarehouseTime(Ticket $ticket): string
+    {
+        $sentAt = $ticket->latestSentToWarehouseEvent?->occurred_at
+            ?? $ticket->sent_to_warehouse_at;
+
+        if (! $sentAt) {
+            return 'Sin hora de envío';
+        }
+
+        $date = Carbon::parse($sentAt)->timezone('America/Guayaquil');
+
+        if ($date->isToday()) {
+            return $date->format('H:i');
+        }
+
+        if ($date->isYesterday()) {
+            return 'Ayer '.$date->format('H:i');
+        }
+
+        return $date->format('d/m/Y H:i');
     }
 
     private function resetWarehouseNotificationCursors(): void

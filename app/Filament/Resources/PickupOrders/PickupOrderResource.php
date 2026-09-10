@@ -36,6 +36,8 @@ class PickupOrderResource extends Resource
 {
     use HasLogisticsNavigation;
 
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static ?string $model = PickupOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBoxArrowDown;
@@ -95,10 +97,10 @@ class PickupOrderResource extends Resource
                 TextEntry::make('pickup_name')->label('Punto de retiro'), TextEntry::make('pickup_address')->label('Direccion')->columnSpan(2), TextEntry::make('item_description')->label('Materiales')->columnSpanFull(),
             ]),
             Section::make('Analisis de tiempos')->columns(4)->schema([
-                TextEntry::make('scheduled_at')->label('Programado')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('en_route_at')->label('Salida al retiro')->dateTime('d/m/Y H:i')->placeholder('-'),
-                TextEntry::make('arrived_at')->label('Llegada')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('loading_at')->label('Inicio de carga')->dateTime('d/m/Y H:i')->placeholder('-'),
-                TextEntry::make('picked_up_at')->label('Retiro completado')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('received_at')->label('Recepcion en bodega')->dateTime('d/m/Y H:i')->placeholder('-'),
-                TextEntry::make('completed_at')->label('Cierre')->dateTime('d/m/Y H:i')->placeholder('-'),
+                TextEntry::make('scheduled_at')->label('Programado')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('en_route_at')->label('Salida al retiro')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
+                TextEntry::make('arrived_at')->label('Llegada')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'), TextEntry::make('loading_at')->label('Inicio de carga')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
+                TextEntry::make('picked_up_at')->label('Retiro completado')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'), TextEntry::make('received_at')->label('Recepcion en bodega')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
+                TextEntry::make('completed_at')->label('Cierre')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
             ]),
         ]);
     }

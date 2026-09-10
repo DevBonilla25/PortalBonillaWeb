@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeliveryType;
+use App\Enums\TicketEventType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -153,6 +154,21 @@ class Ticket extends Model
     public function events(): HasMany
     {
         return $this->hasMany(TicketEvent::class);
+    }
+
+    public function latestSentToWarehouseEvent(): HasOne
+    {
+        return $this->hasOne(TicketEvent::class)
+            ->where(function ($query): void {
+                $query
+                    ->where('event_type', TicketEventType::SentToWarehouse->value)
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('event_type', TicketEventType::StatusChanged->value)
+                            ->where('new_status', TicketStatus::SentToWarehouse->value);
+                    });
+            })
+            ->latestOfMany('occurred_at');
     }
 
     public function documents(): HasMany
