@@ -103,8 +103,13 @@ class WarehousePanel extends Page implements HasActions
             return;
         }
 
+        $warehouseOptions = $service->warehouseOptions($user);
+        $employeeWarehouseId = $service->employeeWarehouseId($user);
+
         $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
-            ?? array_key_first($service->warehouseOptions($user));
+            ?? ($employeeWarehouseId !== null && array_key_exists($employeeWarehouseId, $warehouseOptions)
+                ? $employeeWarehouseId
+                : array_key_first($warehouseOptions));
 
         $this->resetWarehouseNotificationCursors();
     }
