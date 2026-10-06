@@ -195,8 +195,7 @@ class WarehousePanel extends Page implements HasActions
 
     public function pollWarehousePanel(): void
     {
-        $this->notifyNewSentToWarehouseTickets();
-        $this->notifyNewLoadedTickets();
+        // The global Filament listener handles operational notifications.
     }
 
     public function assignTicketAction(): Action
