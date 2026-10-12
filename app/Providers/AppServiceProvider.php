@@ -11,7 +11,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Keep browser uploads on Laravel; only the final file is sent to R2.
+        config()->set('livewire.temporary_file_upload.disk', 'local');
     }
 
     /**
