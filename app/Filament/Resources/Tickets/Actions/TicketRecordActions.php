@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Tickets\Actions;
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\CancelTicketDefinitivelyAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
+use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Actions\Tickets\RescheduleTicketAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
 use App\Actions\Tickets\SendTicketToWarehouseAction;
@@ -22,6 +23,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -138,14 +140,32 @@ class TicketRecordActions
                 TicketStatus::SentToWarehouse,
                 TicketStatus::Picking,
                 TicketStatus::AssignedToWarehouse,
+                TicketStatus::PendingReassignment,
             ], true))
             ->modalHeading(fn (Ticket $record): string => TicketAssignmentForm::hasExistingAssignment($record)
                 ? 'Actualizar asignación'
                 : 'Asignar recursos')
-            ->fillForm(fn (Ticket $record): array => [
-                ...TicketAssignmentForm::defaultState($record),
-                'warehouse_user_id' => Auth::id(),
-            ])
+            ->fillForm(function (Ticket $record): array {
+                $state = TicketAssignmentForm::defaultState($record);
+
+                if (blank($state['vehicle_id']) && filled($state['driver_id'])) {
+                    $state['vehicle_id'] = DriverProfile::query()
+                        ->whereKey($state['driver_id'])
+                        ->value('default_vehicle_id');
+                }
+
+                if (blank($state['driver_id']) && filled($state['vehicle_id'])) {
+                    $state['driver_id'] = DriverProfile::query()
+                        ->where('is_active', true)
+                        ->where('default_vehicle_id', $state['vehicle_id'])
+                        ->orderBy('id')
+                        ->value('id');
+                }
+
+                $state['warehouse_user_id'] = Auth::id();
+
+                return $state;
+            })
             ->form([
                 Select::make('driver_id')
                     ->label('Chofer')
@@ -158,6 +178,20 @@ class TicketRecordActions
                         ]))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $vehicleId = DriverProfile::query()
+                            ->whereKey($state)
+                            ->value('default_vehicle_id');
+
+                        if ($vehicleId) {
+                            $set('vehicle_id', $vehicleId);
+                        }
+                    })
                     ->required(),
                 Select::make('vehicle_id')
                     ->label('Vehiculo')
@@ -167,6 +201,22 @@ class TicketRecordActions
                         ->pluck('plate', 'id'))
                     ->searchable()
                     ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $driverId = DriverProfile::query()
+                            ->where('is_active', true)
+                            ->where('default_vehicle_id', $state)
+                            ->orderBy('id')
+                            ->value('id');
+
+                        if ($driverId) {
+                            $set('driver_id', $driverId);
+                        }
+                    })
                     ->required(),
                 Select::make('warehouse_user_id')
                     ->label('Bodeguero responsable')
@@ -217,6 +267,25 @@ class TicketRecordActions
                         ->body($exception->getMessage())
                         ->danger()
                         ->send();
+                }
+            });
+    }
+
+    public static function receiveReturn(): Action
+    {
+        return Action::make('receiveReturn')
+            ->label('Recibir retorno')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('warning')
+            ->requiresConfirmation()
+            ->schema([Textarea::make('observation')->label('Resultado de la verificación')->maxLength(1500)])
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && $record->status === TicketStatus::Returning)
+            ->action(function (Ticket $record, array $data): void {
+                try {
+                    app(ReceiveTicketReturnAction::class)->execute($record, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Retorno recibido en bodega')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo recibir el retorno')->body($exception->getMessage())->danger()->send();
                 }
             });
     }

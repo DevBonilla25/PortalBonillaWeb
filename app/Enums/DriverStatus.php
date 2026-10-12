@@ -2,13 +2,20 @@
 
 namespace App\Enums;
 
-enum DriverStatus: string
+use Filament\Support\Contracts\HasLabel;
+
+enum DriverStatus: string implements HasLabel
 {
     case Available = 'AVAILABLE';
     case Assigned = 'ASSIGNED';
     case OnRoute = 'ON_ROUTE';
     case Offline = 'OFFLINE';
     case Suspended = 'SUSPENDED';
+
+    public function getLabel(): ?string
+    {
+        return $this->label();
+    }
 
     public function label(): string
     {

@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 
 class StopsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'stops';
 
     protected static ?string $title = 'Paradas de ruta';
@@ -25,8 +27,8 @@ class StopsRelationManager extends RelationManager
                 'sleep' => 'Descanso / dormir', 'food' => 'Alimentación', 'personal' => 'Actividad personal',
                 'mechanical' => 'Revisión mecánica', default => 'Otro',
             })->badge(),
-            TextColumn::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i:s')->sortable(),
-            TextColumn::make('finished_at')->label('Fin')->dateTime('d/m/Y H:i:s')->placeholder('En curso'),
+            TextColumn::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i:s', timezone: self::DISPLAY_TIMEZONE)->sortable(),
+            TextColumn::make('finished_at')->label('Fin')->dateTime('d/m/Y H:i:s', timezone: self::DISPLAY_TIMEZONE)->placeholder('En curso'),
             TextColumn::make('notes')->label('Detalle')->placeholder('-')->wrap(),
             TextColumn::make('starter.name')->label('Registrada por')->placeholder('-'),
         ])->defaultSort('started_at', 'desc');

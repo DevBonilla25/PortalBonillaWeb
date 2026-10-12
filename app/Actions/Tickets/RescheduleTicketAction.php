@@ -30,6 +30,7 @@ class RescheduleTicketAction
             }
 
             $this->releaseResources($ticket);
+            $ticket->resetLoadingChecklist();
             $ticket->forceFill([
                 'status' => TicketStatus::SentToWarehouse,
                 'rescheduled_count' => $ticket->rescheduled_count + 1,

@@ -12,10 +12,13 @@ enum TicketStatus: string
     case Loaded = 'loaded';
     case Dispatched = 'dispatched';
     case InRoute = 'in_route';
+    case AtDestination = 'at_destination';
+    case Unloading = 'unloading';
     case Delivered = 'delivered';
     case DeliveryFailed = 'delivery_failed';
     case Returning = 'returning';
     case ArrivedBack = 'arrived_back';
+    case PendingReassignment = 'pending_reassignment';
     case Cancelled = 'cancelled';
 
     public function label(): string
@@ -29,10 +32,13 @@ enum TicketStatus: string
             self::Loaded => 'Cargado',
             self::Dispatched => 'Despachado',
             self::InRoute => 'En ruta',
+            self::AtDestination => 'Llegó al destino',
+            self::Unloading => 'Descargando',
             self::Delivered => 'Entregado',
-            self::DeliveryFailed => 'Novedad',
+            self::DeliveryFailed => 'Entrega no realizada',
             self::Returning => 'En retorno',
-            self::ArrivedBack => 'Llegada registrada',
+            self::ArrivedBack => 'Recibido en bodega',
+            self::PendingReassignment => 'Pendiente de reasignación',
             self::Cancelled => 'Cancelado',
         };
     }
@@ -50,10 +56,15 @@ enum TicketStatus: string
             self::Loading => [self::Loaded, self::DeliveryFailed],
             self::Loaded => [self::Dispatched],
             self::Dispatched => [self::InRoute],
-            self::InRoute => [self::Delivered, self::DeliveryFailed],
-            self::Delivered, self::DeliveryFailed => [self::Returning],
+            self::InRoute => [self::AtDestination],
+            self::AtDestination => [self::Unloading, self::Returning],
+            self::Unloading => [self::Delivered, self::Returning],
+            self::DeliveryFailed => [self::Returning],
+            self::Delivered => [],
             self::Returning => [self::ArrivedBack],
-            self::ArrivedBack, self::Cancelled => [],
+            self::ArrivedBack => [self::PendingReassignment],
+            self::PendingReassignment => [self::Picking, self::Cancelled],
+            self::Cancelled => [],
         };
     }
 

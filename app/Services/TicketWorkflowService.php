@@ -47,9 +47,13 @@ class TicketWorkflowService
         return match ($status) {
             TicketStatus::AssignedToWarehouse, TicketStatus::Picking => ['assigned_at' => now()],
             TicketStatus::Dispatched => ['dispatched_at' => now()],
+            TicketStatus::AtDestination => ['arrived_destination_at' => now()],
+            TicketStatus::Unloading => ['unloading_at' => now()],
             TicketStatus::Delivered => ['delivered_at' => now(), 'closed_at' => now()],
-            TicketStatus::Returning => ['returned_at' => now()],
-            TicketStatus::ArrivedBack, TicketStatus::Cancelled => ['closed_at' => now()],
+            TicketStatus::Returning => ['returned_at' => now(), 'closed_at' => null],
+            TicketStatus::ArrivedBack => ['warehouse_received_at' => now()],
+            TicketStatus::PendingReassignment => ['closed_at' => null],
+            TicketStatus::Cancelled => ['closed_at' => now()],
             default => [],
         };
     }

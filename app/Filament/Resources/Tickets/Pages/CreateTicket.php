@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Url;
@@ -203,6 +204,7 @@ class CreateTicket extends CreateRecord
     protected function afterCreate(): void
     {
         $this->createMorfeusItemsFromSnapshot();
+        $this->recordMorfeusInvoiceIssuedEvent();
 
         app(TicketEventService::class)->record(
             ticket: $this->record,
@@ -220,6 +222,35 @@ class CreateTicket extends CreateRecord
                 documentType: TicketDocumentType::GuideImage,
             );
         }
+    }
+
+    private function recordMorfeusInvoiceIssuedEvent(): void
+    {
+        if ($this->record->external_source !== 'morfeus') {
+            return;
+        }
+
+        $issuedAt = $this->record->external_snapshot['issued_at'] ?? null;
+
+        if (blank($issuedAt)) {
+            return;
+        }
+
+        app(TicketEventService::class)->record(
+            ticket: $this->record,
+            eventType: TicketEventType::MorfeusInvoiceIssued,
+            user: $this->record->cashier,
+            occurredAt: Carbon::parse($issuedAt, 'America/Guayaquil'),
+            source: 'morfeus',
+            localEventId: 'morfeus-invoice-'.$this->record->external_invoice_id,
+            description: 'Factura emitida en Morfeus.',
+            metadata: [
+                'issued_at' => $issuedAt,
+                'external_invoice_id' => $this->record->external_invoice_id,
+                'external_document_number' => $this->record->external_document_number,
+                'external_warehouse_id' => $this->record->external_warehouse_id,
+            ],
+        );
     }
 
     private function createMorfeusItemsFromSnapshot(): void

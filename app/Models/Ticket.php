@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeliveryType;
+use App\Enums\TicketEventType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -43,8 +44,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'status',
     'assigned_at',
     'dispatched_at',
+    'arrived_destination_at',
+    'unloading_at',
     'delivered_at',
     'returned_at',
+    'warehouse_received_at',
     'closed_at',
     'rescheduled_count',
     'last_rescheduled_at',
@@ -71,8 +75,11 @@ class Ticket extends Model
             'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
             'dispatched_at' => 'datetime',
+            'arrived_destination_at' => 'datetime',
+            'unloading_at' => 'datetime',
             'delivered_at' => 'datetime',
             'returned_at' => 'datetime',
+            'warehouse_received_at' => 'datetime',
             'closed_at' => 'datetime',
             'rescheduled_count' => 'integer',
             'last_rescheduled_at' => 'datetime',
@@ -149,6 +156,21 @@ class Ticket extends Model
         return $this->hasMany(TicketEvent::class);
     }
 
+    public function latestSentToWarehouseEvent(): HasOne
+    {
+        return $this->hasOne(TicketEvent::class)
+            ->where(function ($query): void {
+                $query
+                    ->where('event_type', TicketEventType::SentToWarehouse->value)
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('event_type', TicketEventType::StatusChanged->value)
+                            ->where('new_status', TicketStatus::SentToWarehouse->value);
+                    });
+            })
+            ->latestOfMany('occurred_at');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(TicketDocument::class);
@@ -162,6 +184,11 @@ class Ticket extends Model
     public function novelties(): HasMany
     {
         return $this->hasMany(TicketNovelty::class);
+    }
+
+    public function deliveryAttempts(): HasMany
+    {
+        return $this->hasMany(DeliveryAttempt::class);
     }
 
     public function locationPoints(): HasMany
@@ -211,5 +238,16 @@ class Ticket extends Model
         return $this->items()
             ->where('is_loaded', true)
             ->count();
+    }
+
+    public function resetLoadingChecklist(): void
+    {
+        $this->items()->update([
+            'loaded_quantity' => null,
+            'is_loaded' => false,
+            'load_reviewed_by' => null,
+            'load_reviewed_at' => null,
+            'load_observation' => null,
+        ]);
     }
 }

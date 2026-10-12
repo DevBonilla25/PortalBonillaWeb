@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
+use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
 use App\Enums\TicketStatus;
 use App\Filament\Concerns\HasLogisticsNavigation;
@@ -32,6 +33,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -73,6 +75,8 @@ class WarehousePanel extends Page implements HasActions
 
     public ?int $lastNotifiedLoadedEventId = null;
 
+    public ?int $lastNotifiedSentToWarehouseEventId = null;
+
     public function getHeading(): string|Htmlable
     {
         return 'Panel de bodega';
@@ -99,10 +103,15 @@ class WarehousePanel extends Page implements HasActions
             return;
         }
 
-        $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
-            ?? array_key_first($service->warehouseOptions($user));
+        $warehouseOptions = $service->warehouseOptions($user);
+        $employeeWarehouseId = $service->employeeWarehouseId($user);
 
-        $this->resetLoadedTicketNotificationCursor();
+        $this->warehouseId = $service->effectiveWarehouseId($user, $this->warehouseId)
+            ?? ($employeeWarehouseId !== null && array_key_exists($employeeWarehouseId, $warehouseOptions)
+                ? $employeeWarehouseId
+                : array_key_first($warehouseOptions));
+
+        $this->resetWarehouseNotificationCursors();
     }
 
     /**
@@ -181,12 +190,12 @@ class WarehousePanel extends Page implements HasActions
 
     public function updatedWarehouseId(): void
     {
-        $this->resetLoadedTicketNotificationCursor();
+        $this->resetWarehouseNotificationCursors();
     }
 
     public function pollWarehousePanel(): void
     {
-        $this->notifyNewLoadedTickets();
+        // The global Filament listener handles operational notifications.
     }
 
     public function assignTicketAction(): Action
@@ -496,6 +505,28 @@ class WarehousePanel extends Page implements HasActions
             });
     }
 
+    public function receiveReturnAction(): Action
+    {
+        return Action::make('receiveReturn')
+            ->label('Recibir retorno')
+            ->icon(Heroicon::OutlinedArrowDownTray)
+            ->color('warning')
+            ->size('sm')
+            ->modalHeading('Confirmar recepción en bodega')
+            ->modalSubmitActionLabel('Confirmar recepción')
+            ->modalCancelActionLabel('Cancelar')
+            ->form([Textarea::make('observation')->label('Resultado de la verificación')->maxLength(1500)])
+            ->action(function (array $arguments, array $data): void {
+                $ticket = Ticket::query()->findOrFail($arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null);
+                try {
+                    app(ReceiveTicketReturnAction::class)->execute($ticket, Auth::user(), $data['observation'] ?? null);
+                    Notification::make()->title('Retorno recibido en bodega')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo recibir el retorno')->body($exception->getMessage())->danger()->send();
+                }
+            });
+    }
+
     public function assignTicketButtonHtml(int $ticketId): string
     {
         return ($this->assignTicketAction())(['ticket' => $ticketId])
@@ -533,6 +564,16 @@ class WarehousePanel extends Page implements HasActions
      *     internal_observation: string|null,
      * }
      */
+    public function receiveReturnButtonHtml(int $ticketId): string
+    {
+        return ($this->receiveReturnAction())(['ticket' => $ticketId])->livewire($this)->toHtml();
+    }
+
+    public function canReceiveReturn(Ticket $ticket): bool
+    {
+        return (bool) Auth::user()?->can('Update:Ticket') && $ticket->status === TicketStatus::Returning;
+    }
+
     private function assignmentDefaultState(Ticket $ticket): array
     {
         $state = TicketAssignmentForm::defaultState($ticket);
@@ -593,10 +634,82 @@ class WarehousePanel extends Page implements HasActions
         return TicketResource::getUrl('view', ['record' => $ticket]);
     }
 
+    public function sentToWarehouseTime(Ticket $ticket): string
+    {
+        $sentAt = $ticket->latestSentToWarehouseEvent?->occurred_at
+            ?? $ticket->sent_to_warehouse_at;
+
+        if (! $sentAt) {
+            return 'Sin hora de envío';
+        }
+
+        $date = Carbon::parse($sentAt)->timezone('America/Guayaquil');
+
+        if ($date->isToday()) {
+            return $date->format('H:i');
+        }
+
+        if ($date->isYesterday()) {
+            return 'Ayer '.$date->format('H:i');
+        }
+
+        return $date->format('d/m/Y H:i');
+    }
+
+    private function resetWarehouseNotificationCursors(): void
+    {
+        $this->resetSentToWarehouseTicketNotificationCursor();
+        $this->resetLoadedTicketNotificationCursor();
+    }
+
     private function resetLoadedTicketNotificationCursor(): void
     {
         $this->lastNotifiedLoadedEventId = app(WarehousePanelService::class)
             ->latestLoadedStatusEventIdForPanel(Auth::user(), $this->warehouseId);
+    }
+
+    private function resetSentToWarehouseTicketNotificationCursor(): void
+    {
+        $this->lastNotifiedSentToWarehouseEventId = app(WarehousePanelService::class)
+            ->latestSentToWarehouseEventIdForPanel(Auth::user(), $this->warehouseId);
+    }
+
+    private function notifyNewSentToWarehouseTickets(): void
+    {
+        $service = app(WarehousePanelService::class);
+        $events = $service->sentToWarehouseEventsForPanel(
+            user: Auth::user(),
+            warehouseId: $this->warehouseId,
+            afterEventId: $this->lastNotifiedSentToWarehouseEventId,
+        );
+
+        foreach ($events as $event) {
+            $ticket = $event->ticket;
+
+            if (! $ticket) {
+                continue;
+            }
+
+            $title = 'Ticket recibido en bodega';
+            $body = "El ticket {$ticket->ticket_code} llego desde caja y esta en Recibidos.";
+
+            Notification::make()
+                ->title($title)
+                ->body($body)
+                ->duration(self::LOADED_NOTIFICATION_DURATION_MS)
+                ->info()
+                ->send();
+
+            $this->dispatch(
+                'warehouse-ticket-received',
+                ticketId: $ticket->id,
+                title: $title,
+                body: $body,
+                soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH),
+            );
+
+            $this->lastNotifiedSentToWarehouseEventId = $event->id;
+        }
     }
 
     private function notifyNewLoadedTickets(): void
@@ -617,12 +730,18 @@ class WarehousePanel extends Page implements HasActions
 
             Notification::make()
                 ->title('Ticket cargado')
-                ->body("El ticket {$ticket->ticket_code} esta listo para validacion/despacho.")
+                ->body("El ticket {$ticket->ticket_code} está listo para validación y despacho.")
                 ->duration(self::LOADED_NOTIFICATION_DURATION_MS)
                 ->success()
                 ->send();
 
-            $this->dispatch('warehouse-ticket-loaded', soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH));
+            $this->dispatch(
+                'warehouse-ticket-loaded',
+                ticketId: $ticket->id,
+                title: 'Ticket cargado',
+                body: "El ticket {$ticket->ticket_code} está listo para validación y despacho.",
+                soundUrl: asset(self::LOADED_NOTIFICATION_SOUND_PATH),
+            );
 
             $this->lastNotifiedLoadedEventId = $event->id;
         }

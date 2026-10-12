@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'driver_profile_id',
     'ticket_id',
+    'pickup_order_id',
     'type',
     'title',
     'body',
@@ -35,5 +36,10 @@ class DriverNotification extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function pickupOrder(): BelongsTo
+    {
+        return $this->belongsTo(PickupOrder::class);
     }
 }

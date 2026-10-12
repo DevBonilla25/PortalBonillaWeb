@@ -185,10 +185,13 @@ class TicketInfolist
 
             TicketStatus::Dispatched,
             TicketStatus::InRoute,
+            TicketStatus::AtDestination,
+            TicketStatus::Unloading,
             TicketStatus::Returning => 'info',
 
             TicketStatus::Delivered,
-            TicketStatus::ArrivedBack => 'success',
+            TicketStatus::ArrivedBack,
+            TicketStatus::PendingReassignment => 'success',
 
             TicketStatus::DeliveryFailed,
             TicketStatus::Cancelled => 'danger',

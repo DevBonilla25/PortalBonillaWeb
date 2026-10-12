@@ -37,7 +37,7 @@ class WarehousesTable
                 TextColumn::make('morfeusMappings.external_warehouse_id')
                     ->label('Morfeus')
                     ->badge()
-                    ->placeholder('â€”')
+                    ->placeholder('—')
                     ->toggleable(),
                 IconColumn::make('is_general')
                     ->label('General')

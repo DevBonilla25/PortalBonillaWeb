@@ -63,11 +63,11 @@ class TicketResource extends Resource
         $query = parent::getEloquentQuery();
         $user = Auth::user();
 
-        if (! $user || $user->hasAnyRole(['super_admin', 'admin', 'supervisor'])) {
+        if (! $user || $user->hasAnyRole(['super_admin', 'admin', 'supervisor', 'warehouse_operator'])) {
             return $query;
         }
 
-        if ($user->hasAnyRole(['warehouse_operator', 'warehouse_assistant'])) {
+        if ($user->hasRole('warehouse_assistant')) {
             $warehouseId = $user->employee?->warehouse_id;
 
             return $warehouseId

@@ -306,10 +306,13 @@ class TicketsTable
 
             TicketStatus::Dispatched,
             TicketStatus::InRoute,
+            TicketStatus::AtDestination,
+            TicketStatus::Unloading,
             TicketStatus::Returning => 'info',
 
             TicketStatus::Delivered,
-            TicketStatus::ArrivedBack => 'success',
+            TicketStatus::ArrivedBack,
+            TicketStatus::PendingReassignment => 'success',
 
             TicketStatus::DeliveryFailed,
             TicketStatus::Cancelled => 'danger',
@@ -322,7 +325,7 @@ class TicketsTable
     private static function warehouseOptions(): array
     {
         $user = Auth::user();
-        $canSeeAllWarehouses = $user?->hasAnyRole(self::ADMIN_ROLES) ?? false;
+        $canSeeAllWarehouses = $user?->hasAnyRole([...self::ADMIN_ROLES, 'warehouse_operator']) ?? false;
 
         return Warehouse::query()
             ->when($user?->company_id, fn (Builder $query, int $companyId): Builder => $query->where('company_id', $companyId))
@@ -337,7 +340,7 @@ class TicketsTable
     {
         $user = Auth::user();
 
-        if (! $user || $user->hasAnyRole(self::ADMIN_ROLES)) {
+        if (! $user) {
             return null;
         }
 
@@ -348,7 +351,7 @@ class TicketsTable
 
     private static function warehouseFilterIsLocked(): bool
     {
-        return Auth::user()?->hasAnyRole(self::WAREHOUSE_ROLES) ?? false;
+        return Auth::user()?->hasRole('warehouse_assistant') ?? false;
     }
 
     private static function tableDescription(int $total): HtmlString

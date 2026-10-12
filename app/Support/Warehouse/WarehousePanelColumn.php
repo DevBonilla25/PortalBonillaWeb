@@ -46,6 +46,17 @@ readonly class WarehousePanelColumn
                 dotColor: 'primary',
                 statuses: [TicketStatus::Dispatched],
             ),
+            new self(
+                key: 'returns',
+                label: 'Devoluciones',
+                dotColor: 'danger',
+                statuses: [
+                    TicketStatus::DeliveryFailed,
+                    TicketStatus::Returning,
+                    TicketStatus::ArrivedBack,
+                    TicketStatus::PendingReassignment,
+                ],
+            ),
         ];
     }
 

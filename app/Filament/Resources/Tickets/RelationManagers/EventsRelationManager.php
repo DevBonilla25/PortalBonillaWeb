@@ -8,6 +8,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 class EventsRelationManager extends RelationManager
 {
@@ -22,6 +23,19 @@ class EventsRelationManager extends RelationManager
         return $schema;
     }
 
+    private static function formatOccurredAt(mixed $state, mixed $record): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        if ($record?->event_type === TicketEventType::MorfeusInvoiceIssued) {
+            return Carbon::parse($record->metadata['issued_at'] ?? $state)->format('d/m/Y H:i:s');
+        }
+
+        return Carbon::parse($state)->timezone(self::DISPLAY_TIMEZONE)->format('d/m/Y H:i:s');
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -29,7 +43,7 @@ class EventsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('occurred_at')
                     ->label('Fecha')
-                    ->dateTime(timezone: self::DISPLAY_TIMEZONE)
+                    ->formatStateUsing(fn (mixed $state, mixed $record): ?string => self::formatOccurredAt($state, $record))
                     ->sortable(),
                 TextColumn::make('event_type')
                     ->label('Evento')

@@ -23,6 +23,8 @@ class DriverTicketQueryService
             TicketStatus::Loaded,
             TicketStatus::Dispatched,
             TicketStatus::InRoute,
+            TicketStatus::AtDestination,
+            TicketStatus::Unloading,
             TicketStatus::DeliveryFailed,
             TicketStatus::Returning,
         ];

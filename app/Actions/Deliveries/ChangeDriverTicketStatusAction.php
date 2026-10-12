@@ -25,8 +25,18 @@ class ChangeDriverTicketStatusAction
     {
         abort_unless((int) $ticket->current_driver_id === (int) $driver->id, 404);
 
-        if ($nextStatus === TicketStatus::Delivered) {
-            throw new DomainException('Para marcar el ticket como entregado debes registrar la evidencia de entrega.');
+        if ($nextStatus === TicketStatus::InRoute) {
+            throw new DomainException('Debes usar Iniciar ruta para comenzar todas las entregas.');
+        }
+
+        if (in_array($nextStatus, [
+            TicketStatus::Dispatched,
+            TicketStatus::Delivered,
+            TicketStatus::DeliveryFailed,
+            TicketStatus::Returning,
+            TicketStatus::ArrivedBack,
+        ], true)) {
+            throw new DomainException('Este estado requiere una acción de bodega o un formulario especializado.');
         }
 
         $previousStatus = $ticket->status;

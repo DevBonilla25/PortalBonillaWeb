@@ -17,7 +17,7 @@ function lifecycleTicket(TicketStatus $status): array
     $user = User::factory()->create(['company_id' => $company->id]);
     $ticket = Ticket::query()->create([
         'company_id' => $company->id, 'ticket_code' => fake()->unique()->bothify('TCK-####'),
-        'customer_name' => 'Cliente', 'delivery_address' => 'Dirección', 'status' => $status,
+        'customer_name' => 'Cliente', 'delivery_address' => 'DirecciÃ³n', 'status' => $status,
     ]);
 
     return [$user, $ticket];
@@ -25,13 +25,24 @@ function lifecycleTicket(TicketStatus $status): array
 
 it('reprograms immediately back to warehouse and keeps a visible marker', function () {
     [$user, $ticket] = lifecycleTicket(TicketStatus::Loaded);
+    $item = $ticket->items()->create([
+        'product_name' => 'Producto revisado',
+        'quantity' => 1,
+        'loaded_quantity' => 1,
+        'is_loaded' => true,
+        'load_reviewed_by' => $user->id,
+        'load_reviewed_at' => now(),
+    ]);
 
-    app(RescheduleTicketAction::class)->execute($ticket, 'Cliente solicita entrega mañana', $user);
+    app(RescheduleTicketAction::class)->execute($ticket, 'Cliente solicita entrega maÃ±ana', $user);
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::SentToWarehouse)
         ->and($ticket->rescheduled_count)->toBe(1)
         ->and($ticket->last_rescheduled_at)->not->toBeNull()
-        ->and($ticket->reschedule_reason)->toBe('Cliente solicita entrega mañana');
+        ->and($ticket->reschedule_reason)->toBe('Cliente solicita entrega maÃ±ana')
+        ->and($item->refresh()->loaded_quantity)->toBeNull()
+        ->and($item->is_loaded)->toBeFalse()
+        ->and($item->load_reviewed_at)->toBeNull();
 });
 
 it('makes definitive cancellation terminal', function () {
