@@ -7,6 +7,7 @@ use App\Enums\LogisticOperationAction;
 use App\Enums\LogisticOperationStatus;
 use App\Filament\Resources\LogisticOperations\LogisticOperationResource;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -14,29 +15,63 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ViewLogisticOperation extends ViewRecord
 {
     protected static string $resource = LogisticOperationResource::class;
 
+    public function getTitle(): string
+    {
+        return "Abastecimiento #{$this->record->id}";
+    }
+
+    public function getBreadcrumb(): string
+    {
+        return 'Detalle';
+    }
+
     protected function getHeaderActions(): array
     {
-        $actions = [EditAction::make()->label('Editar')];
-        if ($next = $this->nextAction()) {
-            $actions[] = $this->transitionAction($next);
-        }
-        if (! in_array($this->record->status, [LogisticOperationStatus::Completed, LogisticOperationStatus::Cancelled], true)) {
-            $actions[] = $this->stopAction();
-            $actions[] = $this->transitionAction(LogisticOperationAction::Cancel)->color('danger');
-        }
-        $actions[] = Action::make('uploadGuide')->label('Subir guía')->icon('heroicon-o-paper-clip')->schema([
-            FileUpload::make('path')->label('Guía')->disk(config('filesystems.logistics_media_disk', 'public'))->directory("logistic-operations/{$this->record->id}")->required(),
-        ])->action(function (array $data): void {
-            $this->record->mediaAttachments()->create(['collection' => 'guide', 'disk' => config('filesystems.logistics_media_disk', 'public'), 'path' => $data['path']]);
-            Notification::make()->success()->title('Guía subida')->send();
-        });
+        $primaryActions = [];
+        $secondaryActions = [EditAction::make()->label('Editar')];
 
-        return $actions;
+        if ($next = $this->nextAction()) {
+            $primaryActions[] = $this->transitionAction($next);
+        }
+
+        if (! in_array($this->record->status, [LogisticOperationStatus::Completed, LogisticOperationStatus::Cancelled], true)) {
+            $secondaryActions[] = $this->stopAction();
+            $secondaryActions[] = $this->transitionAction(LogisticOperationAction::Cancel)->color('danger');
+        }
+
+        $secondaryActions[] = Action::make('uploadGuide')
+            ->label('Subir guía')
+            ->icon('heroicon-o-paper-clip')
+            ->schema([
+                FileUpload::make('path')
+                    ->label('Guía')
+                    ->disk(config('filesystems.logistics_media_disk', 'public'))
+                    ->directory("logistic-operations/{$this->record->id}")
+                    ->required(),
+            ])
+            ->action(function (array $data): void {
+                $this->record->mediaAttachments()->create([
+                    'collection' => 'guide',
+                    'disk' => config('filesystems.logistics_media_disk', 'public'),
+                    'path' => $data['path'],
+                ]);
+
+                Notification::make()->success()->title('Guía subida')->send();
+            });
+
+        $primaryActions[] = ActionGroup::make($secondaryActions)
+            ->label('Más acciones')
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->button()
+            ->color('gray');
+
+        return $primaryActions;
     }
 
     private function transitionAction(LogisticOperationAction $operationAction): Action
@@ -49,19 +84,26 @@ class ViewLogisticOperation extends ViewRecord
                 ->disk(config('filesystems.logistics_media_disk', 'public'))
                 ->directory("logistic-operations/{$this->record->id}/plant-exit")
                 ->acceptedFileTypes(['image/*', 'application/pdf'])
+                ->imageResizeMode('contain')
+                ->imageResizeTargetWidth('800')
+                ->imageResizeTargetHeight('800')
+                ->imageResizeUpscale(false)
                 ->maxSize(10240)
                 ->required());
         }
 
         return Action::make($operationAction->value)->label($operationAction->label())->requiresConfirmation()->schema($schema)->action(function (array $data) use ($operationAction): void {
-            if ($operationAction === LogisticOperationAction::StartReturn) {
-                $this->record->mediaAttachments()->create([
-                    'collection' => 'plant_exit_document',
-                    'disk' => config('filesystems.logistics_media_disk', 'public'),
-                    'path' => $data['plant_exit_document'],
-                ]);
-            }
-            app(TransitionLogisticOperationAction::class)->execute($this->record, $operationAction, Auth::user(), $data);
+            DB::transaction(function () use ($data, $operationAction): void {
+                if ($operationAction === LogisticOperationAction::StartReturn) {
+                    $this->record->mediaAttachments()->create([
+                        'collection' => 'plant_exit_document',
+                        'disk' => config('filesystems.logistics_media_disk', 'public'),
+                        'path' => $data['plant_exit_document'],
+                    ]);
+                }
+
+                app(TransitionLogisticOperationAction::class)->execute($this->record, $operationAction, Auth::user(), $data);
+            });
             Notification::make()->success()->title('Estado actualizado')->send();
             $this->redirect(LogisticOperationResource::getUrl('view', ['record' => $this->record]), navigate: true);
         });

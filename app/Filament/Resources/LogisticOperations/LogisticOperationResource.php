@@ -58,7 +58,14 @@ class LogisticOperationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('company_id', Auth::user()?->company_id);
+        $user = Auth::user();
+        $query = parent::getEloquentQuery()->where('company_id', $user?->company_id);
+
+        if ($user?->hasAnyRole(['driver', 'external_driver'])) {
+            $query->where('driver_id', $user->driverProfile?->id ?? 0);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array
