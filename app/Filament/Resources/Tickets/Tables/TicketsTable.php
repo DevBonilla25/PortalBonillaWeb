@@ -77,6 +77,12 @@ class TicketsTable
                     ->color(fn (TicketStatus $state): string => static::statusColor($state))
                     ->badge()
                     ->sortable(),
+                TextColumn::make('fulfillment_status')
+                    ->label('Cumplimiento')
+                    ->state(fn ($record): ?string => $record->fulfillment_status === 'partial' ? 'Entrega parcial' : null)
+                    ->placeholder('-')
+                    ->badge()
+                    ->color('warning'),
                 TextColumn::make('cashier.name')
                     ->label('Cajero')
                     ->placeholder('-')
@@ -277,6 +283,7 @@ class TicketsTable
     {
         return [
             TicketStatus::Created,
+            TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
             TicketStatus::AssignedToWarehouse,
             TicketStatus::Picking,
@@ -298,6 +305,7 @@ class TicketsTable
     {
         return match ($status) {
             TicketStatus::Created,
+            TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
             TicketStatus::AssignedToWarehouse,
             TicketStatus::Picking,

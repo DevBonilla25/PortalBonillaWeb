@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class AttachmentsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'mediaAttachments';
 
     protected static ?string $title = 'Evidencias del retiro';
@@ -24,7 +26,7 @@ class AttachmentsRelationManager extends RelationManager
         return $table->columns([
             TextColumn::make('collection')->label('Evento')->badge(),
             TextColumn::make('original_name')->label('Archivo')->default(fn ($record) => basename($record->path))->url(fn ($record) => Storage::disk($record->disk)->url($record->path), true),
-            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i')->sortable(),
+            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->sortable(),
         ])->defaultSort('created_at', 'desc');
     }
 }

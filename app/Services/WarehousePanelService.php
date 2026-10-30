@@ -15,13 +15,11 @@ use Illuminate\Support\Collection;
 
 class WarehousePanelService
 {
+    private const PARTIALS_LIMIT = 30;
+
     private const RECEIVED_LIMIT = 30;
 
-    private const PREPARATION_LIMIT = 30;
-
     private const LOADING_LIMIT = 30;
-
-    private const DISPATCHED_LIMIT = 20;
 
     private const RETURNS_LIMIT = 30;
 
@@ -254,13 +252,6 @@ class WarehousePanelService
                 $columnQuery->where(function (Builder $query) use ($column): void {
                     $query->whereIn('status', collect($column->statuses)->map->value->all());
 
-                    if ($column->key === 'preparation') {
-                        $query->orWhere('status', TicketStatus::AssignedToWarehouse->value);
-                    }
-
-                    if ($column->key === 'loading') {
-                        $query->orWhere('status', TicketStatus::Loaded->value);
-                    }
                 });
 
                 $column->key === 'received'
@@ -283,10 +274,9 @@ class WarehousePanelService
     public function defaultColumnLimits(): array
     {
         return [
+            'partials' => self::PARTIALS_LIMIT,
             'received' => self::RECEIVED_LIMIT,
-            'preparation' => self::PREPARATION_LIMIT,
             'loading' => self::LOADING_LIMIT,
-            'dispatched' => self::DISPATCHED_LIMIT,
             'returns' => self::RETURNS_LIMIT,
         ];
     }
@@ -302,11 +292,7 @@ class WarehousePanelService
             return true;
         }
 
-        return match ($column->key) {
-            'preparation' => $ticket->status === TicketStatus::AssignedToWarehouse,
-            'loading' => $ticket->status === TicketStatus::Loaded,
-            default => false,
-        };
+        return false;
     }
 
     public function nextAdvanceStatus(Ticket $ticket): ?TicketStatus
@@ -321,9 +307,8 @@ class WarehousePanelService
     public function canAssign(Ticket $ticket): bool
     {
         return in_array($ticket->status, [
+            TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
-            TicketStatus::Picking,
-            TicketStatus::AssignedToWarehouse,
         ], true);
     }
 

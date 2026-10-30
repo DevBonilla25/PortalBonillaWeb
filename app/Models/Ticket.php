@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'company_id',
+    'parent_ticket_id',
+    'source_ticket_id',
+    'partial_sequence',
     'branch_id',
     'warehouse_id',
     'contact_id',
@@ -42,6 +45,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'google_maps_url',
     'priority',
     'status',
+    'fulfillment_status',
     'assigned_at',
     'dispatched_at',
     'arrived_destination_at',
@@ -72,6 +76,7 @@ class Ticket extends Model
             'priority' => TicketPriority::class,
             'delivery_type' => DeliveryType::class,
             'status' => TicketStatus::class,
+            'partial_sequence' => 'integer',
             'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
             'dispatched_at' => 'datetime',
@@ -84,6 +89,21 @@ class Ticket extends Model
             'rescheduled_count' => 'integer',
             'last_rescheduled_at' => 'datetime',
         ];
+    }
+
+    public function parentTicket(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_ticket_id');
+    }
+
+    public function sourceTicket(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_ticket_id');
+    }
+
+    public function partialTickets(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_ticket_id')->orderBy('partial_sequence');
     }
 
     public function company(): BelongsTo
@@ -199,6 +219,15 @@ class Ticket extends Model
     /**
      * @return list<string>
      */
+    public function fulfillmentLabel(): string
+    {
+        if ($this->fulfillment_status === 'partial') {
+            return 'Entrega parcial';
+        }
+
+        return $this->status === TicketStatus::Delivered ? 'Completa' : 'Pendiente';
+    }
+
     public function itemLinesPreview(int $limit = 2): array
     {
         $items = $this->relationLoaded('items')

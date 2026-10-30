@@ -565,6 +565,9 @@
                                 <a href="{{ $this->ticketViewUrl($ticket) }}" class="wh-kanban-card-code">
                                     {{ $ticket->ticket_code }}
                                 </a>
+                                @if ($ticket->parent_ticket_id)
+                                    <x-filament::badge color="warning" size="sm">Faltante</x-filament::badge>
+                                @endif
                                 @if ($ticket->zone)
                                     <span class="wh-zone-chip" style="background-color: {{ $ticket->zone->color ?? '#6B7280' }};">
                                         <span class="wh-zone-chip-dot"></span>

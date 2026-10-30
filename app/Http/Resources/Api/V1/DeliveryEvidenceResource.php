@@ -23,6 +23,11 @@ class DeliveryEvidenceResource extends JsonResource
             'received_by_identification' => $this->received_by_identification,
             'photo_url' => $this->photo_path ? Storage::disk($mediaDisk)->url($this->photo_path) : null,
             'photos' => MediaAttachmentResource::collection($this->whenLoaded('mediaAttachments')),
+            'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($item): array => [
+                'ticket_item_id' => $item->ticket_item_id,
+                'product_name' => $item->ticketItem?->product_name,
+                'delivered_quantity' => $item->delivered_quantity,
+            ])->values()),
             'signature_url' => $this->signature_path ? Storage::disk($mediaDisk)->url($this->signature_path) : null,
             'observation' => $this->observation,
             'latitude' => $this->latitude,
@@ -35,6 +40,7 @@ class DeliveryEvidenceResource extends JsonResource
                 'status_label' => $this->ticket->status?->label(),
                 'delivered_at' => $this->ticket->delivered_at?->toISOString(),
                 'closed_at' => $this->ticket->closed_at?->toISOString(),
+                'fulfillment_status' => $this->ticket->fulfillment_status,
             ]),
             'created_at' => $this->created_at?->toISOString(),
         ];

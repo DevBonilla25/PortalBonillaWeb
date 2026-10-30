@@ -15,6 +15,7 @@ enum TicketStatus: string
     case AtDestination = 'at_destination';
     case Unloading = 'unloading';
     case Delivered = 'delivered';
+    case PendingPartialDispatch = 'pending_partial_dispatch';
     case DeliveryFailed = 'delivery_failed';
     case Returning = 'returning';
     case ArrivedBack = 'arrived_back';
@@ -35,6 +36,7 @@ enum TicketStatus: string
             self::AtDestination => 'Llegó al destino',
             self::Unloading => 'Descargando',
             self::Delivered => 'Entregado',
+            self::PendingPartialDispatch => 'Faltante pendiente',
             self::DeliveryFailed => 'Entrega no realizada',
             self::Returning => 'En retorno',
             self::ArrivedBack => 'Recibido en bodega',
@@ -61,6 +63,7 @@ enum TicketStatus: string
             self::Unloading => [self::Delivered, self::Returning],
             self::DeliveryFailed => [self::Returning],
             self::Delivered => [],
+            self::PendingPartialDispatch => [self::Picking],
             self::Returning => [self::ArrivedBack],
             self::ArrivedBack => [self::PendingReassignment],
             self::PendingReassignment => [self::Picking, self::Cancelled],

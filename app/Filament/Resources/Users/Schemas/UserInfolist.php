@@ -9,6 +9,8 @@ use Filament\Schemas\Schema;
 
 class UserInfolist
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -28,7 +30,7 @@ class UserInfolist
                             ->boolean(),
                         TextEntry::make('last_login_at')
                             ->label('Último acceso')
-                            ->dateTime('d/m/Y H:i')
+                            ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                             ->placeholder('—'),
                     ]),
                 Section::make('Organización')
