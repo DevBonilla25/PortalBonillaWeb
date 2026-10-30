@@ -12,6 +12,9 @@ class TicketItemResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $deliveredQuantity = (float) $this->deliveryEvidenceItems()->sum('delivered_quantity');
+        $requestedQuantity = (float) $this->quantity;
+
         return [
             'id' => $this->id,
             'product_code' => $this->product_code,
@@ -22,6 +25,8 @@ class TicketItemResource extends JsonResource
             'is_loaded' => (bool) $this->is_loaded,
             'loaded_quantity' => $this->loaded_quantity,
             'load_observation' => $this->load_observation,
+            'delivered_quantity' => number_format($deliveredQuantity, 2, '.', ''),
+            'pending_quantity' => number_format(max(0, $requestedQuantity - $deliveredQuantity), 2, '.', ''),
         ];
     }
 }

@@ -5,7 +5,6 @@ namespace App\Support\Tickets;
 use Closure;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
@@ -30,11 +29,13 @@ class LoadingChecklistForm
                 TextInput::make('product_name')
                     ->label('Producto')
                     ->disabled()
-                    ->dehydrated(),
+                    ->dehydrated()
+                    ->columnSpan(['default' => 12, 'xl' => 4]),
                 TextInput::make('quantity')
                     ->label('Cantidad ticket')
                     ->disabled()
-                    ->dehydrated(),
+                    ->dehydrated()
+                    ->columnSpan(['default' => 6, 'xl' => 2]),
                 TextInput::make('loaded_quantity')
                     ->label('Cantidad cargada')
                     ->numeric()
@@ -50,14 +51,15 @@ class LoadingChecklistForm
                                 $fail('La cantidad cargada no puede superar la cantidad del ticket.');
                             }
                         },
-                    ]),
-                Toggle::make('is_loaded')
-                    ->label('Cargado')
-                    ->default(false)
-                    ->live(),
-                Textarea::make('load_observation')
-                    ->label('Observacion')
+                    ])
+                    ->columnSpan(['default' => 6, 'xl' => 2]),
+                TextInput::make('load_observation')
+                    ->label('Observación')
                     ->live(onBlur: true)
+                    ->visible(fn (Get $get): bool => LoadingChecklistValidation::requiresObservation(
+                        (float) ($get('quantity') ?? 0),
+                        (float) ($get('loaded_quantity') ?? 0),
+                    ))
                     ->required(fn (Get $get): bool => LoadingChecklistValidation::requiresObservation(
                         (float) ($get('quantity') ?? 0),
                         (float) ($get('loaded_quantity') ?? 0),
@@ -76,9 +78,14 @@ class LoadingChecklistForm
                             }
                         },
                     ])
-                    ->columnSpanFull(),
+                    ->columnSpan(['default' => 12, 'xl' => 3]),
+                Toggle::make('is_loaded')
+                    ->label('Cargado')
+                    ->default(false)
+                    ->live()
+                    ->columnSpan(['default' => 12, 'xl' => 1]),
             ])
-            ->columns(4)
+            ->columns(12)
             ->reorderable(false)
             ->addable(false)
             ->deletable(false);

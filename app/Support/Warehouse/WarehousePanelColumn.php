@@ -23,28 +23,22 @@ readonly class WarehousePanelColumn
     {
         return [
             new self(
+                key: 'partials',
+                label: 'Faltantes pendientes',
+                dotColor: 'danger',
+                statuses: [TicketStatus::PendingPartialDispatch],
+            ),
+            new self(
                 key: 'received',
                 label: 'Recibidos desde caja',
                 dotColor: 'info',
                 statuses: [TicketStatus::SentToWarehouse],
             ),
             new self(
-                key: 'preparation',
-                label: 'En preparación',
-                dotColor: 'warning',
-                statuses: [TicketStatus::Picking],
-            ),
-            new self(
                 key: 'loading',
                 label: 'Cargando',
                 dotColor: 'warning',
-                statuses: [TicketStatus::Loading],
-            ),
-            new self(
-                key: 'dispatched',
-                label: 'Despachados',
-                dotColor: 'primary',
-                statuses: [TicketStatus::Dispatched],
+                statuses: [TicketStatus::AssignedToWarehouse, TicketStatus::Picking, TicketStatus::Loading, TicketStatus::Loaded],
             ),
             new self(
                 key: 'returns',

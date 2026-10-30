@@ -46,8 +46,11 @@ class AssignTicketResourcesAction
 
         $ticket = $ticket->refresh();
 
-        if (in_array($previousStatus, [TicketStatus::SentToWarehouse, TicketStatus::AssignedToWarehouse, TicketStatus::PendingReassignment], true)) {
+        if ($previousStatus === TicketStatus::AssignedToWarehouse) {
+            $ticket = $this->workflow->transition($ticket, TicketStatus::Loading);
+        } elseif (in_array($previousStatus, [TicketStatus::PendingPartialDispatch, TicketStatus::SentToWarehouse, TicketStatus::PendingReassignment], true)) {
             $ticket = $this->workflow->transition($ticket, TicketStatus::Picking);
+            $ticket = $this->workflow->transition($ticket, TicketStatus::Loading);
         }
 
         $this->events->record(

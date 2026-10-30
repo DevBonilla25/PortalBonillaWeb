@@ -9,12 +9,14 @@ use Filament\Schemas\Schema;
 
 class LogisticOperationInfolist
 {
-    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
-
     public static function configure(Schema $schema): Schema
     {
-        return $schema->columns(12)->components([
-            Section::make('Resumen')->columnSpanFull()->columns(4)->schema([
+        return $schema->columns(1)->components([
+            Section::make('Resumen')->columnSpanFull()->columns([
+                'default' => 2,
+                'md' => 3,
+                'xl' => 4,
+            ])->schema([
                 TextEntry::make('id')->label('Operación'),
                 TextEntry::make('status')->label('Estado')->formatStateUsing(fn (LogisticOperationStatus $state) => $state->label())->color(fn (LogisticOperationStatus $state) => $state->color())->badge(),
                 TextEntry::make('driver.user.name')->label('Chofer')->placeholder('Sin asignar'),
@@ -26,7 +28,11 @@ class LogisticOperationInfolist
                 TextEntry::make('scheduled_arrival_at')->label('Llegada programada')->dateTime('d/m/Y H:i')->placeholder('-'),
                 TextEntry::make('notes')->label('Observaciones')->placeholder('-')->columnSpanFull(),
             ]),
-            Section::make('Tiempos del recorrido')->columnSpanFull()->columns(4)->schema([
+            Section::make('Tiempos del recorrido')->columnSpanFull()->columns([
+                'default' => 2,
+                'md' => 3,
+                'xl' => 4,
+            ])->schema([
                 TextEntry::make('started_at')->label('Inicio de viaje')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
                 TextEntry::make('arrived_plant_at')->label('Llegada a planta')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
                 TextEntry::make('queue_started_at')->label('Inicio de cola')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),

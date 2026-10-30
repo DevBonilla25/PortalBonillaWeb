@@ -397,6 +397,7 @@ class WarehousePanel extends Page implements HasActions
             ->color('warning')
             ->size('sm')
             ->modalHeading('Validar carga - checklist')
+            ->modalWidth(Width::SevenExtraLarge)
             ->modalSubmitActionLabel('Validar y despachar')
             ->fillForm(function (array $arguments): array {
                 $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;

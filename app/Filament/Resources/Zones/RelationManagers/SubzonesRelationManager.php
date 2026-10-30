@@ -15,6 +15,8 @@ use Filament\Tables\Table;
 
 class SubzonesRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'subzones';
 
     protected static ?string $title = 'Subzonas';
@@ -53,7 +55,7 @@ class SubzonesRelationManager extends RelationManager
                     ->boolean(),
                 TextColumn::make('created_at')
                     ->label('Creada')
-                    ->dateTime('d/m/Y H:i')
+                    ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                     ->sortable(),
             ])
             ->defaultSort('name')

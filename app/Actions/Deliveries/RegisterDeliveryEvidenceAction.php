@@ -18,6 +18,7 @@ class RegisterDeliveryEvidenceAction
     public function __construct(
         private readonly TicketEventService $events,
         private readonly TicketWorkflowService $workflow,
+        private readonly CreatePartialTicketAction $createPartialTicket,
     ) {}
 
     /**
@@ -66,6 +67,10 @@ class RegisterDeliveryEvidenceAction
 
         foreach ($storedImages as $image) {
             $evidence->mediaAttachments()->create($image);
+        }
+
+        if (array_key_exists('items', $data)) {
+            $this->createPartialTicket->execute($ticket, $evidence, $data['items']);
         }
 
         $this->events->record(
@@ -123,7 +128,7 @@ class RegisterDeliveryEvidenceAction
             ])->save();
         }
 
-        return $evidence->refresh()->load(['ticket', 'mediaAttachments']);
+        return $evidence->refresh()->load(['ticket', 'items.ticketItem', 'mediaAttachments']);
     }
 
     /**

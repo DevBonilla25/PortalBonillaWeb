@@ -12,6 +12,8 @@ use Filament\Schemas\Schema;
 
 class TicketInfolist
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -30,10 +32,24 @@ class TicketInfolist
                             ->copyable(),
                         TextEntry::make('status')
                             ->label('Estado')
-                            ->columnSpan(1)
+                            ->columnSpan(2)
                             ->formatStateUsing(fn (TicketStatus $state): string => $state->label())
                             ->color(fn (TicketStatus $state): string => self::statusColor($state))
                             ->badge(),
+                        TextEntry::make('fulfillment_status')
+                            ->label('Cumplimiento')
+                            ->state(fn ($record): string => $record->fulfillmentLabel())
+                            ->columnSpan(2)
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Entrega parcial' => 'warning',
+                                'Completa' => 'success',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('parentTicket.ticket_code')
+                            ->label('Ticket origen')
+                            ->placeholder('-')
+                            ->columnSpan(2),
                         TextEntry::make('cashier.name')
                             ->label('Cajero')
                             ->placeholder('-')
@@ -43,29 +59,31 @@ class TicketInfolist
                             ->placeholder('-')
                             ->badge()
                             ->color('gray')
-                            ->columnSpan(1),
+                            ->columnSpan(2),
                         TextEntry::make('branch.name')
                             ->label('Sucursal')
-                            ->placeholder('-'),
+                            ->placeholder('-')
+                            ->columnSpan(2),
                         TextEntry::make('zone.name')
                             ->label('Zona')
                             ->placeholder('-')
                             ->badge()
-                            ->color('info'),
+                            ->color('info')
+                            ->columnSpan(2),
                         TextEntry::make('guide_number')
                             ->label('Guia')
                             ->placeholder('-')
-                            ->columnSpan(1)
+                            ->columnSpan(2)
                             ->copyable(),
                         TextEntry::make('priority')
                             ->label('Prioridad')
-                            ->columnSpan(1)
+                            ->columnSpan(2)
                             ->formatStateUsing(fn (?TicketPriority $state): string => self::priorityLabel($state))
                             ->color(fn (?TicketPriority $state): string => self::priorityColor($state))
                             ->badge(),
                         TextEntry::make('last_rescheduled_at')
                             ->label('Última reprogramación')
-                            ->dateTime('d/m/Y H:i')
+                            ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                             ->columnSpan(2)
                             ->visible(fn ($record): bool => $record->rescheduled_count > 0),
                         TextEntry::make('rescheduled_count')
@@ -177,6 +195,7 @@ class TicketInfolist
     {
         return match ($status) {
             TicketStatus::Created,
+            TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
             TicketStatus::AssignedToWarehouse,
             TicketStatus::Picking,

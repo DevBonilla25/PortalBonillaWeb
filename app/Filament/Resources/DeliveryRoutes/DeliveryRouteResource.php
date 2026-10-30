@@ -27,6 +27,8 @@ class DeliveryRouteResource extends Resource
 {
     use HasLogisticsNavigation;
 
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static ?string $model = DeliveryRoute::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
@@ -45,13 +47,13 @@ class DeliveryRouteResource extends Resource
     {
         return $schema->components([
             Section::make('Resumen')->columns(4)->schema([
-                TextEntry::make('id')->label('Ruta'), TextEntry::make('status')->label('Estado')->formatStateUsing(fn (DeliveryRouteStatus $state) => $state->value)->badge(),
+                TextEntry::make('id')->label('Ruta'), TextEntry::make('status')->label('Estado')->formatStateUsing(fn (DeliveryRouteStatus $state) => $state->label())->badge(),
                 TextEntry::make('driver.user.name')->label('Chofer'), TextEntry::make('vehicle.plate')->label('Vehiculo'), TextEntry::make('warehouse.name')->label('Bodega')->placeholder('-'),
-                TextEntry::make('tasks_count')->label('Actividades'), TextEntry::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i')->placeholder('-'),
+                TextEntry::make('tasks_count')->label('Actividades'), TextEntry::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
             ]),
             Section::make('Analisis de tiempos')->columns(4)->schema([
-                TextEntry::make('started_at')->label('Inicio de ruta')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('returning_at')->label('Inicio de retorno')->dateTime('d/m/Y H:i')->placeholder('-'),
-                TextEntry::make('arrived_warehouse_at')->label('Llegada a bodega')->dateTime('d/m/Y H:i')->placeholder('-'), TextEntry::make('completed_at')->label('Cierre')->dateTime('d/m/Y H:i')->placeholder('-'),
+                TextEntry::make('started_at')->label('Inicio de ruta')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'), TextEntry::make('returning_at')->label('Inicio de retorno')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
+                TextEntry::make('arrived_warehouse_at')->label('Llegada a bodega')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'), TextEntry::make('completed_at')->label('Cierre')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->placeholder('-'),
             ]),
         ]);
     }
@@ -61,9 +63,9 @@ class DeliveryRouteResource extends Resource
         return $table->columns([
             TextColumn::make('id')->label('Ruta')->sortable(), TextColumn::make('vehicle.plate')->label('Vehiculo')->searchable(), TextColumn::make('driver.user.name')->label('Chofer')->searchable(),
             TextColumn::make('warehouse.name')->label('Bodega')->placeholder('-'), TextColumn::make('tasks_count')->counts('tasks')->label('Actividades'),
-            TextColumn::make('status')->label('Estado')->formatStateUsing(fn (DeliveryRouteStatus $state) => $state->value)->badge()->sortable(),
-            TextColumn::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i')->sortable(), TextColumn::make('updated_at')->label('Ultima actividad')->since()->sortable(),
-        ])->filters([SelectFilter::make('status')->options(collect(DeliveryRouteStatus::cases())->mapWithKeys(fn ($item) => [$item->value => $item->value])->all())])->recordActions([ViewAction::make()])->defaultSort('updated_at', 'desc');
+            TextColumn::make('status')->label('Estado')->formatStateUsing(fn (DeliveryRouteStatus $state) => $state->label())->badge()->sortable(),
+            TextColumn::make('started_at')->label('Inicio')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->sortable(), TextColumn::make('updated_at')->label('Ultima actividad')->since()->dateTimeTooltip('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->sortable(),
+        ])->filters([SelectFilter::make('status')->options(collect(DeliveryRouteStatus::cases())->mapWithKeys(fn ($item) => [$item->value => $item->label()])->all())])->recordActions([ViewAction::make()])->defaultSort('updated_at', 'desc');
     }
 
     public static function getEloquentQuery(): Builder

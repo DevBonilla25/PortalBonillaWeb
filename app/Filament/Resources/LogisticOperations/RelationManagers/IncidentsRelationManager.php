@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Auth;
 
 class IncidentsRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'incidents';
 
     protected static ?string $title = 'Novedades';
@@ -33,7 +35,7 @@ class IncidentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table->columns([
-            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i')->sortable(),
+            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->sortable(),
             TextColumn::make('type')->label('Tipo')->formatStateUsing(fn ($state) => self::types()[$state] ?? $state)->badge(),
             TextColumn::make('description')->label('Descripción')->wrap(),
             TextColumn::make('reporter.name')->label('Reportado por')->placeholder('-'),

@@ -24,6 +24,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -137,9 +138,12 @@ class TicketRecordActions
             ->icon('heroicon-o-user-group')
             ->color('warning')
             ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
+                TicketStatus::PendingPartialDispatch,
                 TicketStatus::SentToWarehouse,
                 TicketStatus::Picking,
                 TicketStatus::AssignedToWarehouse,
+                TicketStatus::Loading,
+                TicketStatus::Loaded,
                 TicketStatus::PendingReassignment,
             ], true))
             ->modalHeading(fn (Ticket $record): string => TicketAssignmentForm::hasExistingAssignment($record)
@@ -337,6 +341,7 @@ class TicketRecordActions
             ->label('Revisar carga')
             ->icon('heroicon-o-clipboard-document-check')
             ->color('warning')
+            ->modalWidth(Width::SevenExtraLarge)
             ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
                 TicketStatus::Loaded,
             ], true) && $record->items()->exists())

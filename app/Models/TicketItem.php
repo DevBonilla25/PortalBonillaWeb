@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'ticket_id',
@@ -44,6 +45,11 @@ class TicketItem extends Model
     public function loadReviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'load_reviewed_by');
+    }
+
+    public function deliveryEvidenceItems(): HasMany
+    {
+        return $this->hasMany(DeliveryEvidenceItem::class);
     }
 
     public function isLoadReviewed(): bool

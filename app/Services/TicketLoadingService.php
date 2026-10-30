@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Actions\Deliveries\CreatePartialTicketAction;
 use App\Actions\Tickets\ChangeTicketStatusAction;
 use App\Enums\TicketEventType;
 use App\Enums\TicketStatus;
@@ -15,6 +16,7 @@ class TicketLoadingService
     public function __construct(
         private readonly TicketEventService $events,
         private readonly ChangeTicketStatusAction $changeStatus,
+        private readonly CreatePartialTicketAction $createPartialTicket,
     ) {}
 
     /**
@@ -56,6 +58,7 @@ class TicketLoadingService
         );
 
         $ticket = $ticket->refresh();
+        $this->createPartialTicket->executeFromLoading($ticket, $items);
 
         if (in_array($ticket->status, [TicketStatus::Loading, TicketStatus::Loaded], true)
             && $ticket->status->canTransitionTo(TicketStatus::Dispatched)) {

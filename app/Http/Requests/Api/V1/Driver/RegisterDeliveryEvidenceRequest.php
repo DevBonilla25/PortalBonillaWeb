@@ -18,6 +18,9 @@ class RegisterDeliveryEvidenceRequest extends FormRequest
     {
         return [
             'received_by_name' => ['required', 'string', 'max:150'],
+            'items' => ['nullable', 'array', 'min:1'],
+            'items.*.ticket_item_id' => ['required', 'integer', 'distinct'],
+            'items.*.delivered_quantity' => ['required', 'numeric', 'min:0'],
             'received_by_identification' => ['nullable', 'string', 'max:50'],
             'photo' => ['required_without:photos', 'nullable', 'image', 'max:5120'],
             'photos' => ['required_without:photo', 'nullable', 'array', 'max:10'],

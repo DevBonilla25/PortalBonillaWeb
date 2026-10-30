@@ -51,8 +51,9 @@ it('groups warehouse tickets into kanban columns', function () {
     $grouped = app(WarehousePanelService::class)->ticketsByColumn();
 
     expect($grouped->get('received'))->toHaveCount(1)
-        ->and($grouped->get('preparation'))->toHaveCount(1)
-        ->and($grouped->get('loading'))->toHaveCount(0);
+        ->and($grouped)->not->toHaveKey('preparation')
+        ->and($grouped)->not->toHaveKey('dispatched')
+        ->and($grouped->get('loading'))->toHaveCount(1);
 });
 
 it('groups every return stage into a single returns column', function () {
@@ -101,7 +102,7 @@ it('does not advance from sent to warehouse without assignment', function () {
     expect(app(WarehousePanelService::class)->nextAdvanceStatus($ticket))->toBeNull();
 });
 
-it('resolves the next warehouse advance status from preparation to loading', function () {
+it('keeps legacy picking tickets visible in loading', function () {
     $company = Company::query()->create([
         'name' => 'Empresa Demo',
         'ruc' => '1799999999002',

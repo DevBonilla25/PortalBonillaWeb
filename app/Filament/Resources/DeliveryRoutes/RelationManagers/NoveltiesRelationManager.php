@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 
 class NoveltiesRelationManager extends RelationManager
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     protected static string $relationship = 'novelties';
 
     protected static ?string $title = 'Novedades generales';
@@ -20,6 +22,6 @@ class NoveltiesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        return $table->columns([TextColumn::make('occurred_at')->label('Fecha')->dateTime('d/m/Y H:i')->sortable(), TextColumn::make('reason.name')->label('Motivo')->badge(), TextColumn::make('description')->label('Descripcion')->wrap(), TextColumn::make('reporter.name')->label('Reportada por'), TextColumn::make('status')->label('Estado')->badge()])->defaultSort('occurred_at', 'desc');
+        return $table->columns([TextColumn::make('occurred_at')->label('Fecha')->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)->sortable(), TextColumn::make('reason.name')->label('Motivo')->badge(), TextColumn::make('description')->label('Descripcion')->wrap(), TextColumn::make('reporter.name')->label('Reportada por'), TextColumn::make('status')->label('Estado')->formatStateUsing(fn (string $state): string => match ($state) { 'open' => 'Abierta', 'resolved' => 'Resuelta', 'closed' => 'Cerrada', default => $state })->badge()])->defaultSort('occurred_at', 'desc');
     }
 }

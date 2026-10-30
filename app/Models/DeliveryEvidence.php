@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
@@ -42,6 +43,11 @@ class DeliveryEvidence extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(DriverProfile::class, 'driver_id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(DeliveryEvidenceItem::class);
     }
 
     public function mediaAttachments(): MorphMany

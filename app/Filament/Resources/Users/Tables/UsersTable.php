@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 
 class UsersTable
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -51,13 +53,13 @@ class UsersTable
                     ->boolean(),
                 TextColumn::make('last_login_at')
                     ->label('Último acceso')
-                    ->dateTime('d/m/Y H:i')
+                    ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                     ->placeholder('—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label('Creado')
-                    ->dateTime('d/m/Y H:i')
+                    ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
