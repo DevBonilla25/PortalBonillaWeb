@@ -10,6 +10,7 @@ use App\Services\DriverPushNotificationService;
 use App\Services\TicketAssignmentService;
 use App\Services\TicketEventService;
 use App\Services\TicketWorkflowService;
+use DomainException;
 
 class AssignTicketResourcesAction
 {
@@ -32,6 +33,10 @@ class AssignTicketResourcesAction
         User $assignedBy,
         ?string $internalObservation = null,
     ): Ticket {
+        if ($ticket->isScheduledForFuture()) {
+            throw new DomainException('El ticket esta programado para una fecha futura y aun no se puede asignar.');
+        }
+
         $previousStatus = $ticket->status;
 
         $assignment = $this->assignments->assign(

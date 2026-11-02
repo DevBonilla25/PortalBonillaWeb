@@ -18,6 +18,7 @@ enum TicketEventType: string
     case PendingReassignment = 'pending_reassignment';
     case LocationRecorded = 'location_recorded';
     case InternalNote = 'internal_note';
+    case DeliveryDateChanged = 'delivery_date_changed';
 
     public function label(): string
     {
@@ -36,6 +37,7 @@ enum TicketEventType: string
             self::PendingReassignment => 'Ticket habilitado para reasignación',
             self::LocationRecorded => 'Ubicacion registrada',
             self::InternalNote => 'Nota interna',
+            self::DeliveryDateChanged => 'Fecha de entrega cambiada',
         };
     }
 }

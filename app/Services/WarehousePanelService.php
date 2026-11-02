@@ -37,6 +37,7 @@ class WarehousePanelService
         return collect(WarehousePanelColumn::all())
             ->flatMap(fn (WarehousePanelColumn $column): array => $column->statuses)
             ->merge([
+                TicketStatus::Created,
                 TicketStatus::AssignedToWarehouse,
                 TicketStatus::Loaded,
                 TicketStatus::PendingReassignment,
@@ -49,7 +50,7 @@ class WarehousePanelService
     public function baseQuery(?User $user = null, ?int $warehouseId = null): Builder
     {
         $query = Ticket::query()
-            ->with(['warehouse', 'zone', 'currentDriver.user', 'latestAssignment.assistants', 'latestSentToWarehouseEvent'])
+            ->with(['warehouse', 'zone', 'cashier.roles', 'currentDriver.user', 'latestAssignment.assistants', 'latestSentToWarehouseEvent'])
             ->withCount('items')
             ->withMax([
                 'events as sent_to_warehouse_at' => function (Builder $query): void {
@@ -252,7 +253,42 @@ class WarehousePanelService
                 $columnQuery->where(function (Builder $query) use ($column): void {
                     $query->whereIn('status', collect($column->statuses)->map->value->all());
 
+                    if ($column->key === 'partials') {
+                        $query->orWhere(function (Builder $query): void {
+                            $query
+                                ->where(function (Builder $query): void {
+                                    $query
+                                        ->where('status', TicketStatus::SentToWarehouse->value)
+                                        ->orWhere(function (Builder $query): void {
+                                            $query
+                                                ->where('status', TicketStatus::Created->value)
+                                                ->whereHas('cashier.roles', fn (Builder $roleQuery): Builder => $roleQuery->whereIn('name', [
+                                                    'super_admin', 'admin', 'supervisor', 'warehouse_operator',
+                                                ]));
+                                        });
+                                })
+                                ->whereDate('scheduled_delivery_date', '>', today());
+                        });
+                    }
+
+                    if ($column->key === 'received') {
+                        $query->orWhere(function (Builder $query): void {
+                            $query
+                                ->where('status', TicketStatus::Created->value)
+                                ->whereHas('cashier.roles', fn (Builder $roleQuery): Builder => $roleQuery->whereIn('name', [
+                                    'super_admin', 'admin', 'supervisor', 'warehouse_operator',
+                                ]));
+                        });
+                    }
                 });
+
+                if ($column->key === 'received') {
+                    $columnQuery->where(function (Builder $query): void {
+                        $query
+                            ->whereNull('scheduled_delivery_date')
+                            ->orWhereDate('scheduled_delivery_date', '<=', today());
+                    });
+                }
 
                 $column->key === 'received'
                     ? $columnQuery->orderBy('sent_to_warehouse_at')->orderBy('id')
@@ -288,6 +324,18 @@ class WarehousePanelService
 
     public function ticketBelongsToColumn(Ticket $ticket, WarehousePanelColumn $column): bool
     {
+        if ($ticket->isScheduledForFuture()) {
+            return $column->key === 'partials'
+                && (
+                    in_array($ticket->status, [TicketStatus::SentToWarehouse, TicketStatus::PendingPartialDispatch], true)
+                    || ($ticket->status === TicketStatus::Created && $this->isWarehouseCreatedTicket($ticket))
+                );
+        }
+
+        if ($ticket->status === TicketStatus::Created) {
+            return $column->key === 'received' && $this->isWarehouseCreatedTicket($ticket);
+        }
+
         if ($column->matchesStatus($ticket->status)) {
             return true;
         }
@@ -306,7 +354,7 @@ class WarehousePanelService
 
     public function canAssign(Ticket $ticket): bool
     {
-        return in_array($ticket->status, [
+        return ! $ticket->isScheduledForFuture() && in_array($ticket->status, [
             TicketStatus::Created,
             TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
@@ -317,6 +365,14 @@ class WarehousePanelService
     {
         return $user->hasAnyRole([...self::ADMIN_ROLES, ...self::WAREHOUSE_OPERATOR_ROLES])
             && $this->canAssign($ticket);
+    }
+
+    private function isWarehouseCreatedTicket(Ticket $ticket): bool
+    {
+        return $ticket->cashier?->hasAnyRole([
+            ...self::ADMIN_ROLES,
+            ...self::WAREHOUSE_OPERATOR_ROLES,
+        ]) ?? false;
     }
 
     public function canAdvance(Ticket $ticket): bool

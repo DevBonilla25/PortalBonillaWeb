@@ -77,6 +77,17 @@ class TicketsTable
                     ->color(fn (TicketStatus $state): string => static::statusColor($state))
                     ->badge()
                     ->sortable(),
+                TextColumn::make('scheduled_delivery_date')
+                    ->label('Entrega')
+                    ->state(fn ($record): string => $record->deliveryScheduleLabel())
+                    ->icon('heroicon-o-calendar-days')
+                    ->color(fn ($record): string => match (true) {
+                        $record->isScheduledForFuture() => 'warning',
+                        $record->scheduled_delivery_date?->isBefore(today()) => 'danger',
+                        default => 'success',
+                    })
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('fulfillment_status')
                     ->label('Cumplimiento')
                     ->state(fn ($record): ?string => $record->fulfillment_status === 'partial' ? 'Entrega parcial' : null)
@@ -216,15 +227,24 @@ class TicketsTable
                         ];
                     }),
                 SelectFilter::make('pallet_status')
-                ->label('Palets')
-                ->options([
-                    'with' => 'Con palets',
-                    'without' => 'Sin palets',
-                    'pending' => 'Pendiente de definir',
-                ])
-                ->placeholder('Todos')
-                ->query(fn (Builder $query, array $data): Builder => static::applyPalletFilter($query, $data['value'] ?? null)),
-            
+                    ->label('Palets')
+                    ->options([
+                        'with' => 'Con palets',
+                        'without' => 'Sin palets',
+                        'pending' => 'Pendiente de definir',
+                    ])
+                    ->placeholder('Todos')
+                    ->query(fn (Builder $query, array $data): Builder => static::applyPalletFilter($query, $data['value'] ?? null)),
+                SelectFilter::make('delivery_schedule')
+                    ->label('Entrega programada')
+                    ->options([
+                        'today' => 'Entrega hoy',
+                        'future' => 'Entregas futuras',
+                        'overdue' => 'Entregas vencidas',
+                    ])
+                    ->placeholder('Todas')
+                    ->query(fn (Builder $query, array $data): Builder => static::applyDeliveryScheduleFilter($query, $data['value'] ?? null)),
+
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns([
                 'default' => 1,
@@ -303,6 +323,18 @@ class TicketsTable
             'with' => $query->where('uses_pallets', true),
             'without' => $query->where('uses_pallets', false),
             'pending' => $query->whereNull('uses_pallets'),
+            default => $query,
+        };
+    }
+
+    public static function applyDeliveryScheduleFilter(Builder $query, ?string $value): Builder
+    {
+        return match ($value) {
+            'today' => $query->whereDate('scheduled_delivery_date', today()),
+            'future' => $query->whereDate('scheduled_delivery_date', '>', today()),
+            'overdue' => $query
+                ->whereDate('scheduled_delivery_date', '<', today())
+                ->whereNotIn('status', static::statusValues([TicketStatus::Delivered, TicketStatus::Cancelled])),
             default => $query,
         };
     }

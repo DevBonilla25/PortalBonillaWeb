@@ -22,6 +22,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'contact_id',
     'zone_id',
     'delivery_type',
+    'scheduled_delivery_date',
+    'delivery_schedule_reason',
+    'delivery_date_changed_at',
+    'delivery_date_changed_by',
     'subzone_id',
     'cashier_id',
     'current_driver_id',
@@ -69,6 +73,7 @@ class Ticket extends Model
         static::creating(function (Ticket $ticket): void {
             $ticket->priority ??= TicketPriority::Normal;
             $ticket->status ??= TicketStatus::Created;
+            $ticket->scheduled_delivery_date ??= today()->toDateString();
         });
     }
 
@@ -78,6 +83,8 @@ class Ticket extends Model
             'priority' => TicketPriority::class,
             'delivery_type' => DeliveryType::class,
             'status' => TicketStatus::class,
+            'scheduled_delivery_date' => 'date',
+            'delivery_date_changed_at' => 'datetime',
             'partial_sequence' => 'integer',
             'uses_pallets' => 'boolean',
             'pallet_count' => 'integer',
@@ -230,6 +237,32 @@ class Ticket extends Model
         }
 
         return $this->status === TicketStatus::Delivered ? 'Completa' : 'Pendiente';
+    }
+
+    public function isScheduledForFuture(): bool
+    {
+        return $this->scheduled_delivery_date?->isAfter(today()) ?? false;
+    }
+
+    public function deliveryScheduleLabel(): string
+    {
+        if (! $this->scheduled_delivery_date) {
+            return 'Sin fecha';
+        }
+
+        if ($this->scheduled_delivery_date->isToday()) {
+            return 'Hoy';
+        }
+
+        if ($this->scheduled_delivery_date->isTomorrow()) {
+            return 'Mañana';
+        }
+
+        if ($this->scheduled_delivery_date->isBefore(today())) {
+            return 'Vencido · '.$this->scheduled_delivery_date->format('d/m/Y');
+        }
+
+        return $this->scheduled_delivery_date->format('d/m/Y');
     }
 
     public function palletLabel(): string

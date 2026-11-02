@@ -589,6 +589,9 @@
                                         {{ ($ticket->items_count ?? 0) === 1 ? 'producto' : 'productos' }}
                                     </span>
                                 </p>
+                                <p class="wh-kanban-card-meta">
+                                    Fecha de entrega: {{ $ticket->deliveryScheduleLabel() }}
+                                </p>
                                 @if ($ticket->latestAssignment?->assistants?->isNotEmpty())
                                     <p class="wh-kanban-card-meta">
                                         Auxiliar: {{ $ticket->latestAssignment->assistants->pluck('name')->join(', ') }}

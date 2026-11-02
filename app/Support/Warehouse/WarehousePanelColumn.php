@@ -24,7 +24,7 @@ readonly class WarehousePanelColumn
         return [
             new self(
                 key: 'partials',
-                label: 'Faltantes pendientes',
+                label: 'Parciales / Pendientes',
                 dotColor: 'danger',
                 statuses: [TicketStatus::PendingPartialDispatch],
             ),

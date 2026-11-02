@@ -23,6 +23,7 @@ class ViewTicket extends ViewRecord
             TicketRecordActions::sendToWarehouse(),
             TicketRecordActions::receiveReturn(),
             TicketRecordActions::assignResources(),
+            TicketRecordActions::scheduleDelivery(),
             TicketRecordActions::rescheduleTicket(),
             TicketRecordActions::cancelTicket(),
             EditAction::make()

@@ -81,6 +81,13 @@ class TicketInfolist
                             ->formatStateUsing(fn (?TicketPriority $state): string => self::priorityLabel($state))
                             ->color(fn (?TicketPriority $state): string => self::priorityColor($state))
                             ->badge(),
+                        TextEntry::make('scheduled_delivery_date')
+                            ->label('Fecha de entrega')
+                            ->state(fn ($record): string => $record->deliveryScheduleLabel())
+                            ->icon('heroicon-o-calendar-days')
+                            ->badge()
+                            ->color(fn ($record): string => $record->isScheduledForFuture() ? 'warning' : 'success')
+                            ->columnSpan(2),
                         TextEntry::make('last_rescheduled_at')
                             ->label('Última reprogramación')
                             ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)

@@ -8,6 +8,7 @@ use App\Enums\TicketStatus;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Subzone;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -103,6 +104,13 @@ class TicketForm
                             ->default(DeliveryType::Internal->value)
                             ->required()
                             ->live(),
+                        DatePicker::make('scheduled_delivery_date')
+                            ->label('Fecha de entrega')
+                            ->default(fn (): string => today()->toDateString())
+                            ->minDate(fn (): string => today()->toDateString())
+                            ->displayFormat('d/m/Y')
+                            ->native(false)
+                            ->required(),
                         Select::make('subzone_id')
                             ->label('Subzona')
                             ->options(fn (Get $get): array => filled($get('zone_id'))

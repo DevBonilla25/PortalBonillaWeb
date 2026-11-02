@@ -8,6 +8,7 @@ use App\Actions\Tickets\ChangeTicketStatusAction;
 use App\Actions\Tickets\ReceiveTicketReturnAction;
 use App\Actions\Tickets\RescheduleTicketAction;
 use App\Actions\Tickets\ReviewTicketLoadingChecklistAction;
+use App\Actions\Tickets\ScheduleTicketDeliveryAction;
 use App\Actions\Tickets\SendTicketToWarehouseAction;
 use App\Enums\TicketStatus;
 use App\Filament\Pages\WarehousePanel;
@@ -20,6 +21,7 @@ use App\Support\Tickets\LoadingChecklistValidation;
 use App\Support\Tickets\TicketAssignmentForm;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -131,13 +133,53 @@ class TicketRecordActions
             });
     }
 
+    public static function scheduleDelivery(): Action
+    {
+        return Action::make('scheduleDelivery')
+            ->label('Cambiar fecha de entrega')
+            ->icon('heroicon-o-calendar-days')
+            ->color('info')
+            ->visible(fn (Ticket $record): bool => self::canManageTicketLifecycle()
+                && in_array($record->status, ScheduleTicketDeliveryAction::allowedStatuses(), true))
+            ->fillForm(fn (Ticket $record): array => [
+                'scheduled_delivery_date' => $record->scheduled_delivery_date?->toDateString() ?? today()->toDateString(),
+                'reason' => $record->delivery_schedule_reason,
+            ])
+            ->schema([
+                DatePicker::make('scheduled_delivery_date')
+                    ->label('Nueva fecha de entrega')
+                    ->minDate(fn (): string => today()->toDateString())
+                    ->displayFormat('d/m/Y')
+                    ->native(false)
+                    ->required(),
+                Textarea::make('reason')
+                    ->label('Motivo del cambio')
+                    ->required()
+                    ->maxLength(1500),
+            ])
+            ->action(function (Ticket $record, array $data): void {
+                try {
+                    app(ScheduleTicketDeliveryAction::class)->execute(
+                        ticket: $record,
+                        date: $data['scheduled_delivery_date'],
+                        reason: $data['reason'],
+                        user: Auth::user(),
+                    );
+
+                    Notification::make()->title('Fecha de entrega actualizada')->success()->send();
+                } catch (DomainException $exception) {
+                    Notification::make()->title('No se pudo cambiar la fecha')->body($exception->getMessage())->danger()->send();
+                }
+            });
+    }
+
     public static function assignResources(): Action
     {
         return Action::make('assignResources')
             ->label('Asignar recursos')
             ->icon('heroicon-o-user-group')
             ->color('warning')
-            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
+            ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && ! $record->isScheduledForFuture() && in_array($record->status, [
                 TicketStatus::Created,
                 TicketStatus::PendingPartialDispatch,
                 TicketStatus::SentToWarehouse,
