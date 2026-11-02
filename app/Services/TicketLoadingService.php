@@ -22,7 +22,7 @@ class TicketLoadingService
     /**
      * @param  list<array{id:int, loaded_quantity:mixed, is_loaded:mixed, load_observation?:string|null}>  $items
      */
-    public function reviewChecklist(Ticket $ticket, array $items, User $reviewedBy): Ticket
+    public function reviewChecklist(Ticket $ticket, array $items, User $reviewedBy, mixed $usesPallets, mixed $palletCount = null): Ticket
     {
         if ($ticket->status !== TicketStatus::Loaded) {
             throw new DomainException('El checklist solo aplica a tickets marcados como cargados.');
@@ -33,6 +33,21 @@ class TicketLoadingService
         }
 
         LoadingChecklistValidation::validateOrFailDomain($items);
+
+        $usesPallets = match (true) {
+            in_array($usesPallets, [true, 1, '1'], true) => true,
+            in_array($usesPallets, [false, 0, '0'], true) => false,
+            default => throw new DomainException('Debes indicar si la entrega lleva palets.'),
+        };
+
+        if ($usesPallets && (filter_var($palletCount, FILTER_VALIDATE_INT) === false || (int) $palletCount < 1 || (int) $palletCount > 65535)) {
+            throw new DomainException('Debes indicar una cantidad valida de palets.');
+        }
+
+        $ticket->forceFill([
+            'uses_pallets' => $usesPallets,
+            'pallet_count' => $usesPallets ? (int) $palletCount : null,
+        ])->save();
 
         foreach ($items as $itemData) {
             $item = $ticket->items()->findOrFail($itemData['id']);
@@ -55,6 +70,10 @@ class TicketLoadingService
             previousStatus: $ticket->status,
             newStatus: $ticket->status,
             description: 'Checklist de carga revisado.',
+            metadata: [
+                'uses_pallets' => $usesPallets,
+                'pallet_count' => $usesPallets ? (int) $palletCount : null,
+            ],
         );
 
         $ticket = $ticket->refresh();

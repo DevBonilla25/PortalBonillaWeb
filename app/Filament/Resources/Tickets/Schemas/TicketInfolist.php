@@ -150,6 +150,11 @@ class TicketInfolist
                                 TextEntry::make('currentVehicle.plate')
                                     ->label('Vehiculo')
                                     ->placeholder('Sin asignar'),
+                                TextEntry::make('uses_pallets')
+                                    ->label('Palets')
+                                    ->state(fn ($record): string => $record->palletLabel())
+                                    ->color(fn (string $state): string => $state === 'Sin palets' ? 'gray' : 'info')
+                                    ->badge(),
                             ]),
 
                         Section::make('Documento')

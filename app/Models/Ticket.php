@@ -46,6 +46,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'priority',
     'status',
     'fulfillment_status',
+    'uses_pallets',
+    'pallet_count',
     'assigned_at',
     'dispatched_at',
     'arrived_destination_at',
@@ -77,6 +79,8 @@ class Ticket extends Model
             'delivery_type' => DeliveryType::class,
             'status' => TicketStatus::class,
             'partial_sequence' => 'integer',
+            'uses_pallets' => 'boolean',
+            'pallet_count' => 'integer',
             'external_snapshot' => 'array',
             'assigned_at' => 'datetime',
             'dispatched_at' => 'datetime',
@@ -228,6 +232,15 @@ class Ticket extends Model
         return $this->status === TicketStatus::Delivered ? 'Completa' : 'Pendiente';
     }
 
+    public function palletLabel(): string
+    {
+        return match ($this->uses_pallets) {
+            true => $this->pallet_count.' '.($this->pallet_count === 1 ? 'palet' : 'palets'),
+            false => 'Sin palets',
+            default => 'Pendiente',
+        };
+    }
+
     public function itemLinesPreview(int $limit = 2): array
     {
         $items = $this->relationLoaded('items')
@@ -271,6 +284,11 @@ class Ticket extends Model
 
     public function resetLoadingChecklist(): void
     {
+        $this->forceFill([
+            'uses_pallets' => null,
+            'pallet_count' => null,
+        ])->save();
+
         $this->items()->update([
             'loaded_quantity' => null,
             'is_loaded' => false,

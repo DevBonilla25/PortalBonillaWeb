@@ -83,6 +83,16 @@ class TicketsTable
                     ->placeholder('-')
                     ->badge()
                     ->color('warning'),
+                TextColumn::make('uses_pallets')
+                    ->label('Palets')
+                    ->state(fn ($record): string => $record->palletLabel())
+                    ->color(fn ($record): string => match ($record->uses_pallets) {
+                        true => 'info',
+                        false => 'gray',
+                        default => 'warning',
+                    })
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('cashier.name')
                     ->label('Cajero')
                     ->placeholder('-')
@@ -150,6 +160,7 @@ class TicketsTable
                         ->disabled(static::warehouseFilterIsLocked())
                         ->selectablePlaceholder(! static::warehouseFilterIsLocked())
                         ->dehydrated()),
+                /*
                 SelectFilter::make('zone_id')
                     ->label('Zona')
                     ->relationship('zone', 'name')
@@ -204,6 +215,16 @@ class TicketsTable
                             Indicator::make('Fecha: '.Carbon::parse($data['value'])->format('d/m/Y')),
                         ];
                     }),
+                SelectFilter::make('pallet_status')
+                ->label('Palets')
+                ->options([
+                    'with' => 'Con palets',
+                    'without' => 'Sin palets',
+                    'pending' => 'Pendiente de definir',
+                ])
+                ->placeholder('Todos')
+                ->query(fn (Builder $query, array $data): Builder => static::applyPalletFilter($query, $data['value'] ?? null)),
+            
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns([
                 'default' => 1,
@@ -273,6 +294,16 @@ class TicketsTable
             ])),
             'all' => $query,
             default => $query->whereIn('status', static::statusValues(static::pendingStatuses())),
+        };
+    }
+
+    public static function applyPalletFilter(Builder $query, ?string $value): Builder
+    {
+        return match ($value) {
+            'with' => $query->where('uses_pallets', true),
+            'without' => $query->where('uses_pallets', false),
+            'pending' => $query->whereNull('uses_pallets'),
+            default => $query,
         };
     }
 

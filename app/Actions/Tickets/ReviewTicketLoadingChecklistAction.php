@@ -15,8 +15,8 @@ class ReviewTicketLoadingChecklistAction
     /**
      * @param  list<array{id:int, loaded_quantity:mixed, is_loaded:mixed, load_observation?:string|null}>  $items
      */
-    public function execute(Ticket $ticket, array $items, User $reviewedBy): Ticket
+    public function execute(Ticket $ticket, array $items, User $reviewedBy, mixed $usesPallets, mixed $palletCount = null): Ticket
     {
-        return $this->loading->reviewChecklist($ticket, $items, $reviewedBy);
+        return $this->loading->reviewChecklist($ticket, $items, $reviewedBy, $usesPallets, $palletCount);
     }
 }

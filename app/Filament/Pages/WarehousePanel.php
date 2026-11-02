@@ -404,6 +404,8 @@ class WarehousePanel extends Page implements HasActions
                 $ticket = Ticket::query()->with('items')->findOrFail($ticketId);
 
                 return [
+                    'uses_pallets' => $ticket->uses_pallets === null ? null : (string) (int) $ticket->uses_pallets,
+                    'pallet_count' => $ticket->pallet_count,
                     'items' => $ticket->items
                         ->map(fn ($item): array => [
                             'id' => $item->id,
@@ -419,6 +421,7 @@ class WarehousePanel extends Page implements HasActions
             })
             ->form([
                 LoadingChecklistForm::repeater(),
+                LoadingChecklistForm::palletGrid(),
             ])
             ->action(function (array $arguments, array $data): void {
                 $ticketId = $arguments['ticket'] ?? $this->getArguments()['ticket'] ?? null;
@@ -431,6 +434,8 @@ class WarehousePanel extends Page implements HasActions
                         ticket: $ticket,
                         items: $data['items'] ?? [],
                         reviewedBy: Auth::user(),
+                        usesPallets: $data['uses_pallets'] ?? null,
+                        palletCount: $data['pallet_count'] ?? null,
                     );
 
                     Notification::make()

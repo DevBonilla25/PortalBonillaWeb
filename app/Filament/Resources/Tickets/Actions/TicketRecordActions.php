@@ -138,6 +138,7 @@ class TicketRecordActions
             ->icon('heroicon-o-user-group')
             ->color('warning')
             ->visible(fn (Ticket $record): bool => self::canWarehouseOperate() && in_array($record->status, [
+                TicketStatus::Created,
                 TicketStatus::PendingPartialDispatch,
                 TicketStatus::SentToWarehouse,
                 TicketStatus::Picking,
@@ -346,6 +347,8 @@ class TicketRecordActions
                 TicketStatus::Loaded,
             ], true) && $record->items()->exists())
             ->fillForm(fn (Ticket $record): array => [
+                'uses_pallets' => $record->uses_pallets === null ? null : (string) (int) $record->uses_pallets,
+                'pallet_count' => $record->pallet_count,
                 'items' => $record->items()
                     ->orderBy('id')
                     ->get()
@@ -362,6 +365,7 @@ class TicketRecordActions
             ])
             ->form([
                 LoadingChecklistForm::repeater(),
+                LoadingChecklistForm::palletGrid(),
             ])
             ->action(function (Ticket $record, array $data): void {
                 try {
@@ -371,6 +375,8 @@ class TicketRecordActions
                         ticket: $record,
                         items: $data['items'] ?? [],
                         reviewedBy: Auth::user(),
+                        usesPallets: $data['uses_pallets'] ?? null,
+                        palletCount: $data['pallet_count'] ?? null,
                     );
 
                     Notification::make()

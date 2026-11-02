@@ -4,13 +4,49 @@ namespace App\Support\Tickets;
 
 use Closure;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 
 class LoadingChecklistForm
 {
+    public static function palletGrid(): Grid
+    {
+        return Grid::make([
+            'default' => 1,
+            'md' => 2,
+        ])->schema(self::palletFields());
+    }
+
+    /**
+     * @return array<int, Radio|TextInput>
+     */
+    public static function palletFields(): array
+    {
+        return [
+            Radio::make('uses_pallets')
+                ->label('¿Esta entrega lleva palets?')
+                ->options([
+                    '1' => 'Sí, lleva palets',
+                    '0' => 'No lleva palets',
+                ])
+                ->required()
+                ->live()
+                ->inline(),
+            TextInput::make('pallet_count')
+                ->label('Cantidad de palets')
+                ->numeric()
+                ->integer()
+                ->minValue(1)
+                ->maxValue(65535)
+                ->required(fn (Get $get): bool => (string) $get('uses_pallets') === '1')
+                ->visible(fn (Get $get): bool => (string) $get('uses_pallets') === '1'),
+        ];
+    }
+
     public static function repeater(): Repeater
     {
         return Repeater::make('items')
