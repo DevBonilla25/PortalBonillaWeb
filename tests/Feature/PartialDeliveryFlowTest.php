@@ -6,6 +6,7 @@ use App\Actions\Tickets\AssignTicketResourcesAction;
 use App\Enums\DeliveryType;
 use App\Enums\DriverStatus;
 use App\Enums\TicketStatus;
+use App\Filament\Resources\Tickets\Tables\TicketsTable;
 use App\Models\Company;
 use App\Models\DeliveryEvidence;
 use App\Models\DriverProfile;
@@ -60,7 +61,7 @@ it('does not create a derived ticket when every loaded product was delivered', f
     expect($child)->toBeNull()->and($ticket->refresh()->fulfillment_status)->toBe('complete');
 });
 
-it('moves an assigned warehouse ticket directly to loading', function () {
+it('keeps an assigned warehouse ticket in preparation until it is advanced', function () {
     $company = Company::query()->create(['name' => 'Empresa Carga', 'ruc' => '1799999999013', 'is_active' => true]);
     $warehouseUser = User::factory()->create(['company_id' => $company->id, 'is_active' => true]);
     $driverUser = User::factory()->create(['company_id' => $company->id, 'is_active' => true]);
@@ -69,7 +70,32 @@ it('moves an assigned warehouse ticket directly to loading', function () {
 
     app(AssignTicketResourcesAction::class)->execute($ticket, $driver->id, null, $warehouseUser->id, [], $warehouseUser);
 
-    expect($ticket->refresh()->status)->toBe(TicketStatus::Loading);
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Picking);
+
+    $loadingColumn = collect(WarehousePanelColumn::all())->firstWhere('key', 'loading');
+    expect($loadingColumn->matchesStatus($ticket->status))->toBeTrue();
+});
+
+it('allows warehouse resources to be assigned directly to a newly created ticket', function () {
+    $company = Company::query()->create(['name' => 'Empresa Bodega', 'ruc' => '1799999999017', 'is_active' => true]);
+    $warehouseUser = User::factory()->create(['company_id' => $company->id, 'is_active' => true]);
+    $driverUser = User::factory()->create(['company_id' => $company->id, 'is_active' => true]);
+    $driver = DriverProfile::query()->create(['user_id' => $driverUser->id, 'status' => DriverStatus::Available, 'is_active' => true]);
+    $ticket = Ticket::query()->create([
+        'company_id' => $company->id,
+        'ticket_code' => 'FAC-BODEGA',
+        'customer_name' => 'Cliente bodega',
+        'delivery_address' => 'Destino',
+        'delivery_type' => DeliveryType::Distribution,
+        'status' => TicketStatus::Created,
+    ]);
+
+    expect(app(WarehousePanelService::class)->canAssign($ticket))->toBeTrue();
+
+    app(AssignTicketResourcesAction::class)->execute($ticket, $driver->id, null, $warehouseUser->id, [], $warehouseUser);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Picking)
+        ->and($ticket->current_driver_id)->toBe($driver->id);
 });
 
 it('creates one pending ticket when the loading checklist is partial', function () {
@@ -98,12 +124,15 @@ it('creates one pending ticket when the loading checklist is partial', function 
         'loaded_quantity' => 3,
         'is_loaded' => true,
         'load_observation' => 'Dos unidades pendientes',
-    ]], $user);
+    ]], $user, true, 4);
 
     $child = Ticket::query()->where('source_ticket_id', $ticket->id)->sole();
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::Dispatched)
         ->and($ticket->fulfillment_status)->toBe('partial')
+        ->and($ticket->uses_pallets)->toBeTrue()
+        ->and($ticket->pallet_count)->toBe(4)
+        ->and($ticket->palletLabel())->toBe('4 palets')
         ->and($child->ticket_code)->toBe('FAC-CHECK-01')
         ->and($child->external_invoice_id)->toBeNull()
         ->and($child->external_document_number)->toBe('002-105-000155998')
@@ -143,4 +172,50 @@ it('shows fulfillment as pending until the delivery result is known', function (
 
     $ticket->fulfillment_status = 'partial';
     expect($ticket->fulfillmentLabel())->toBe('Entrega parcial');
+});
+
+it('requires the pallet choice before dispatching', function () {
+    $company = Company::query()->create(['name' => 'Empresa Palets', 'ruc' => '1799999999015', 'is_active' => true]);
+    $user = User::factory()->create(['company_id' => $company->id, 'is_active' => true]);
+    $ticket = Ticket::query()->create([
+        'company_id' => $company->id,
+        'ticket_code' => 'FAC-PALET',
+        'customer_name' => 'Cliente palets',
+        'delivery_address' => 'Destino',
+        'delivery_type' => DeliveryType::Distribution,
+        'status' => TicketStatus::Loaded,
+    ]);
+    $item = $ticket->items()->create(['product_name' => 'Producto', 'quantity' => 1]);
+
+    expect(fn () => app(TicketLoadingService::class)->reviewChecklist($ticket, [[
+        'id' => $item->id,
+        'product_name' => $item->product_name,
+        'quantity' => 1,
+        'loaded_quantity' => 1,
+        'is_loaded' => true,
+    ]], $user, null))->toThrow(DomainException::class, 'Debes indicar si la entrega lleva palets.');
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Loaded)
+        ->and($ticket->uses_pallets)->toBeNull();
+});
+
+it('filters tickets by their pallet audit status', function () {
+    $company = Company::query()->create(['name' => 'Empresa Filtro Palets', 'ruc' => '1799999999016', 'is_active' => true]);
+    $base = [
+        'company_id' => $company->id,
+        'customer_name' => 'Cliente',
+        'delivery_address' => 'Destino',
+        'delivery_type' => DeliveryType::Distribution,
+    ];
+
+    Ticket::query()->create([...$base, 'ticket_code' => 'PAL-001', 'uses_pallets' => true, 'pallet_count' => 2]);
+    Ticket::query()->create([...$base, 'ticket_code' => 'PAL-002', 'uses_pallets' => false]);
+    Ticket::query()->create([...$base, 'ticket_code' => 'PAL-003']);
+
+    expect(TicketsTable::applyPalletFilter(Ticket::query(), 'with')->pluck('ticket_code')->all())
+        ->toBe(['PAL-001'])
+        ->and(TicketsTable::applyPalletFilter(Ticket::query(), 'without')->pluck('ticket_code')->all())
+        ->toBe(['PAL-002'])
+        ->and(TicketsTable::applyPalletFilter(Ticket::query(), 'pending')->pluck('ticket_code')->all())
+        ->toBe(['PAL-003']);
 });

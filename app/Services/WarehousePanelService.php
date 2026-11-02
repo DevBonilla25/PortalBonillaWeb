@@ -307,6 +307,7 @@ class WarehousePanelService
     public function canAssign(Ticket $ticket): bool
     {
         return in_array($ticket->status, [
+            TicketStatus::Created,
             TicketStatus::PendingPartialDispatch,
             TicketStatus::SentToWarehouse,
         ], true);
