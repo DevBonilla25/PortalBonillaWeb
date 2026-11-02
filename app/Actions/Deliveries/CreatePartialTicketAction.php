@@ -76,7 +76,7 @@ class CreatePartialTicketAction
         $sequence = ((int) Ticket::query()->where('parent_ticket_id', $rootId)->max('partial_sequence')) + 1;
         $child = new Ticket;
         $child->forceFill([
-            ...$ticket->only(['company_id', 'branch_id', 'warehouse_id', 'contact_id', 'zone_id', 'subzone_id', 'cashier_id', 'delivery_type', 'guide_number', 'external_source', 'external_source_type', 'external_invoice_id', 'external_document_number', 'external_warehouse_id', 'external_cashier_id', 'external_snapshot', 'customer_name', 'customer_phone', 'customer_phone_2', 'delivery_address', 'delivery_reference', 'google_maps_url', 'priority', 'observations']),
+            ...$ticket->only(['company_id', 'branch_id', 'warehouse_id', 'contact_id', 'zone_id', 'subzone_id', 'cashier_id', 'delivery_type', 'scheduled_delivery_date', 'guide_number', 'external_source', 'external_source_type', 'external_invoice_id', 'external_document_number', 'external_warehouse_id', 'external_cashier_id', 'external_snapshot', 'customer_name', 'customer_phone', 'customer_phone_2', 'delivery_address', 'delivery_reference', 'google_maps_url', 'priority', 'observations']),
             'external_invoice_id' => null,
             'parent_ticket_id' => $rootId,
             'source_ticket_id' => $ticket->id,
