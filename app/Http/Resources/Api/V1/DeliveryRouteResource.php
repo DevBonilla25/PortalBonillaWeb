@@ -19,8 +19,10 @@ class DeliveryRouteResource extends JsonResource
             'completed_at' => $this->completed_at?->toISOString(), 'cancelled_at' => $this->cancelled_at?->toISOString(), 'notes' => $this->notes,
             'tasks' => $this->whenLoaded('tasks', fn () => $this->tasks->map(function ($task) {
                 $pickup = $task->pickupOrder ? PickupOrderResource::make($task->pickupOrder) : null;
+                $returnReceivedForRoute = $task->ticket?->warehouse_received_at
+                    && (! $this->started_at || $task->ticket->warehouse_received_at->greaterThanOrEqualTo($this->started_at));
                 $isResolved = $task->ticket
-                    ? in_array($task->ticket->status, [TicketStatus::Delivered, TicketStatus::ArrivedBack, TicketStatus::PendingReassignment, TicketStatus::Cancelled], true)
+                    ? $returnReceivedForRoute || in_array($task->ticket->status, [TicketStatus::Delivered, TicketStatus::ArrivedBack, TicketStatus::PendingReassignment, TicketStatus::Cancelled], true)
                     : in_array($task->pickupOrder?->status, [PickupOrderStatus::ReceivedAtWarehouse, PickupOrderStatus::Completed, PickupOrderStatus::Failed, PickupOrderStatus::Cancelled], true);
                 $requiresDriverAction = $task->ticket
                     ? (int) $task->ticket->current_driver_id === (int) $this->driver_id
