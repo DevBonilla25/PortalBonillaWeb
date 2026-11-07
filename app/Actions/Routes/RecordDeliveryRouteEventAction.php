@@ -69,7 +69,22 @@ class RecordDeliveryRouteEventAction
 
     private function hasUnresolvedTicketsForClosure(DeliveryRoute $route): bool
     {
-        return $this->hasTicketsOutside($route, [TicketStatus::Delivered, TicketStatus::ArrivedBack, TicketStatus::PendingReassignment, TicketStatus::Cancelled]);
+        $resolvedStatuses = [TicketStatus::Delivered, TicketStatus::ArrivedBack, TicketStatus::PendingReassignment, TicketStatus::Cancelled];
+
+        return $route->tasks()
+            ->where('task_type', 'delivery')
+            ->whereHas('ticket', function ($query) use ($resolvedStatuses, $route): void {
+                $query
+                    ->whereNotIn('status', array_map(fn (TicketStatus $status) => $status->value, $resolvedStatuses))
+                    ->where(function ($query) use ($route): void {
+                        $query->whereNull('warehouse_received_at');
+
+                        if ($route->started_at) {
+                            $query->orWhere('warehouse_received_at', '<', $route->started_at);
+                        }
+                    });
+            })
+            ->exists();
     }
 
     private function hasTicketsOutside(DeliveryRoute $route, array $statuses): bool
