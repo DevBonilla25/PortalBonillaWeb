@@ -1,10 +1,30 @@
+@php
+    $statusCode = isset($exception) && method_exists($exception, 'getStatusCode')
+        ? $exception->getStatusCode()
+        : 500;
+    $isApplicationError = $statusCode !== 503;
+    $errorReference = strtoupper(substr(hash('sha256', implode('|', [
+        now()->format('Y-m-d H:i:s.u'),
+        request()->path(),
+        isset($exception) ? $exception->getMessage() : '',
+    ])), 0, 10));
+    $errorType = isset($exception) ? class_basename($exception) : 'Error';
+    $errorMessage = isset($exception) && filled($exception->getMessage())
+        ? $exception->getMessage()
+        : 'No fue posible completar la solicitud.';
+    $errorLocation = isset($exception)
+        ? str_replace(base_path() . DIRECTORY_SEPARATOR, '', $exception->getFile()) . ':' . $exception->getLine()
+        : null;
+@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="refresh" content="45">
-    <title>Aplicación en actualización</title>
+    @unless ($isApplicationError)
+        <meta http-equiv="refresh" content="45">
+    @endunless
+    <title>{{ $isApplicationError ? 'Error en la aplicación' : 'Aplicación en actualización' }}</title>
     <style>
         :root {
             --bg: #f8fafc;
@@ -208,6 +228,35 @@
             gap: 0.75rem;
         }
 
+        .error-detail {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            overflow-wrap: anywhere;
+            border: 1px solid #fecaca;
+            border-radius: 0.85rem;
+            color: #7f1d1d;
+            background: #fef2f2;
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }
+
+        .error-detail strong,
+        .error-detail code {
+            display: block;
+        }
+
+        .error-detail code {
+            margin-top: 0.4rem;
+            white-space: normal;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .error-reference {
+            margin-top: 0.65rem;
+            color: #991b1b;
+            font-weight: 700;
+        }
+
         .button {
             display: inline-flex;
             align-items: center;
@@ -284,20 +333,35 @@
     <main class="page" role="main">
         <section class="shell" aria-labelledby="page-title">
             <div class="content">
-                <span class="badge"><span class="dot"></span> Actualización en curso</span>
-                <h1 id="page-title">Volvemos en unos minutos</h1>
+                <span class="badge"><span class="dot"></span> {{ $isApplicationError ? 'Error detectado' : 'Actualización en curso' }}</span>
+                <h1 id="page-title">{{ $isApplicationError ? 'Ocurrió un inconveniente' : 'Volvemos en unos minutos' }}</h1>
                 <p>
-                    Estamos aplicando mejoras en la aplicación. Por favor espera un par de minutos
-                    y vuelve a intentar; esta pantalla se actualizará automáticamente.
+                    @if ($isApplicationError)
+                        No fue posible completar esta operación. El detalle técnico aparece a continuación para facilitar su revisión.
+                    @else
+                        Estamos aplicando mejoras en la aplicación. Por favor espera un par de minutos
+                        y vuelve a intentar; esta pantalla se actualizará automáticamente.
+                    @endif
                 </p>
 
-                <div class="status" aria-label="Estado de actualización">
-                    <div class="status-row">
-                        <span>Preparando el sistema</span>
-                        <span>En proceso</span>
+                @if ($isApplicationError)
+                    <div class="error-detail" role="alert">
+                        <strong>{{ $errorType }}</strong>
+                        <code>{{ $errorMessage }}</code>
+                        @if ($errorLocation)
+                            <code>{{ $errorLocation }}</code>
+                        @endif
+                        <div class="error-reference">Referencia: {{ $errorReference }}</div>
                     </div>
-                    <div class="track" aria-hidden="true"><div class="bar"></div></div>
-                </div>
+                @else
+                    <div class="status" aria-label="Estado de actualización">
+                        <div class="status-row">
+                            <span>Preparando el sistema</span>
+                            <span>En proceso</span>
+                        </div>
+                        <div class="track" aria-hidden="true"><div class="bar"></div></div>
+                    </div>
+                @endif
 
                 <div class="actions">
                     <a class="button button-primary" href="/admin">Intentar nuevamente</a>
@@ -311,8 +375,12 @@
                     <img class="mascot" src="/images/update-mascot.png" alt="">
                 </div>
                 <div class="mini-card">
-                    <strong>Gracias por tu paciencia</strong>
-                    <span>El equipo está dejando todo listo para continuar trabajando con normalidad.</span>
+                    <strong>{{ $isApplicationError ? 'El incidente fue identificado' : 'Gracias por tu paciencia' }}</strong>
+                    <span>
+                        {{ $isApplicationError
+                            ? 'Comparte la referencia y el detalle mostrado con el equipo técnico.'
+                            : 'El equipo está dejando todo listo para continuar trabajando con normalidad.' }}
+                    </span>
                 </div>
             </div>
         </section>

@@ -12,10 +12,16 @@ use Filament\Tables\Table;
 
 class LogisticOperationsTable
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Table $table): Table
     {
         return $table->columns([
             TextColumn::make('id')->label('N.º')->sortable(),
+            TextColumn::make('created_at')
+                ->label('Fecha de creación')
+                ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE)
+                ->sortable(),
             TextColumn::make('plant_name')->label('Planta')->placeholder('-')->searchable(),
             TextColumn::make('destination')->label('Destino')->searchable(),
             TextColumn::make('driver.user.name')->label('Chofer')->placeholder('Sin asignar'),

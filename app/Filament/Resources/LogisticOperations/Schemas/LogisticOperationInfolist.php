@@ -9,6 +9,8 @@ use Filament\Schemas\Schema;
 
 class LogisticOperationInfolist
 {
+    private const DISPLAY_TIMEZONE = 'America/Guayaquil';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -18,6 +20,9 @@ class LogisticOperationInfolist
                 'xl' => 4,
             ])->schema([
                 TextEntry::make('id')->label('Operación'),
+                TextEntry::make('created_at')
+                    ->label('Fecha de creación')
+                    ->dateTime('d/m/Y H:i', timezone: self::DISPLAY_TIMEZONE),
                 TextEntry::make('status')->label('Estado')->formatStateUsing(fn (LogisticOperationStatus $state) => $state->label())->color(fn (LogisticOperationStatus $state) => $state->color())->badge(),
                 TextEntry::make('driver.user.name')->label('Chofer')->placeholder('Sin asignar'),
                 TextEntry::make('vehicle.plate')->label('Vehículo')->placeholder('Sin asignar'),

@@ -24,13 +24,25 @@ class TransitionsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        $operation = $this->getOwnerRecord()->loadMissing('creator');
+
         return $table->columns([
-            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i:s', timezone: self::DISPLAY_TIMEZONE)->sortable(),
+            TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i:s', timezone: self::DISPLAY_TIMEZONE),
             TextColumn::make('action')->label('Acción')->formatStateUsing(fn (string $state): string => LogisticOperationAction::from($state)->label())->badge(),
             TextColumn::make('from_status')->label('Estado anterior')->formatStateUsing(fn (?string $state): ?string => filled($state) ? LogisticOperationStatus::from($state)->label() : null)->badge()->placeholder('-'),
             TextColumn::make('to_status')->label('Estado nuevo')->formatStateUsing(fn (?string $state): ?string => filled($state) ? LogisticOperationStatus::from($state)->label() : null)->badge()->placeholder('-'),
             TextColumn::make('performer.name')->label('Ejecutado por')->placeholder('-'),
             TextColumn::make('notes')->label('Notas')->placeholder('-')->limit(50),
-        ])->defaultSort('created_at', 'desc');
+        ])
+            ->defaultSort('created_at', 'desc')
+            ->paginated(false)
+            ->contentFooter(view('filament.resources.logistic-operations.creation-history-event', [
+                'operation' => $operation,
+                'empty' => false,
+            ]))
+            ->emptyState(view('filament.resources.logistic-operations.creation-history-event', [
+                'operation' => $operation,
+                'empty' => true,
+            ]));
     }
 }
