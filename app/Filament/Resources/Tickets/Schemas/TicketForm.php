@@ -76,7 +76,9 @@ class TicketForm
                             ->relationship(
                                 'warehouse',
                                 'name',
-                                fn ($query, Get $get) => $query->when($get('company_id'), fn ($query, int $companyId) => $query->where('company_id', $companyId)),
+                                fn ($query, Get $get) => $query
+                                    ->where('is_active', true)
+                                    ->when($get('company_id'), fn ($query, int $companyId) => $query->where('company_id', $companyId)),
                             )
                             ->searchable()
                             ->preload()
